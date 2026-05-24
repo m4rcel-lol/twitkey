@@ -16,6 +16,65 @@
         return data;
     };
 
+    const base64urlToBuffer = (value) => {
+        const padded = `${value}${'='.repeat((4 - (value.length % 4)) % 4)}`;
+        const binary = atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
+    };
+
+    const bufferToBase64url = (buffer) => {
+        const bytes = new Uint8Array(buffer || new ArrayBuffer(0));
+        let binary = '';
+        bytes.forEach((byte) => {
+            binary += String.fromCharCode(byte);
+        });
+        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    };
+
+    const passkeyToPayload = (credential) => {
+        const response = credential.response;
+        const payload = {
+            id: credential.id,
+            type: credential.type,
+            rawId: bufferToBase64url(credential.rawId),
+            response: {
+                clientDataJSON: bufferToBase64url(response.clientDataJSON),
+            },
+        };
+        if (response.attestationObject) {
+            payload.response.attestationObject = bufferToBase64url(response.attestationObject);
+        }
+        if (response.authenticatorData) {
+            payload.response.authenticatorData = bufferToBase64url(response.authenticatorData);
+        }
+        if (response.signature) {
+            payload.response.signature = bufferToBase64url(response.signature);
+        }
+        if (response.userHandle) {
+            payload.response.userHandle = bufferToBase64url(response.userHandle);
+        }
+        return payload;
+    };
+
+    const creationOptions = (options) => ({
+        ...options,
+        challenge: base64urlToBuffer(options.challenge),
+        user: { ...options.user, id: base64urlToBuffer(options.user.id) },
+    });
+
+    const requestOptions = (options) => ({
+        ...options,
+        challenge: base64urlToBuffer(options.challenge),
+        allowCredentials: (options.allowCredentials || []).map((credential) => ({
+            ...credential,
+            id: base64urlToBuffer(credential.id),
+        })),
+    });
+
     let audioContext = null;
     const playNotificationSound = () => {
         try {
@@ -96,7 +155,7 @@
         const form = textarea.closest('form');
         const button = form?.querySelector('button[type="submit"]');
         const update = () => {
-            const remaining = 140 - textarea.value.length;
+            const remaining = 140 - Array.from(textarea.value).length;
             if (target) {
                 target.textContent = String(remaining);
                 target.classList.toggle('danger', remaining <= 20);
@@ -821,6 +880,62 @@
                     status.classList.add('bad');
                 }
             }, 500);
+        });
+    }
+
+    const passkeyRegister = document.querySelector('[data-passkey-register]');
+    if (passkeyRegister) {
+        const status = document.querySelector('[data-passkey-register-status]');
+        passkeyRegister.addEventListener('click', async () => {
+            if (!window.PublicKeyCredential) {
+                status.textContent = 'This browser does not support passkeys.';
+                return;
+            }
+            passkeyRegister.disabled = true;
+            status.textContent = 'Waiting for your browser...';
+            try {
+                const name = window.prompt('Name this passkey', 'Passkey') || 'Passkey';
+                const data = await jsonFetch('/settings/2fa/passkeys/options');
+                const credential = await navigator.credentials.create({ publicKey: creationOptions(data.options) });
+                const payload = passkeyToPayload(credential);
+                payload.passkey_name = name;
+                await jsonFetch('/settings/2fa/passkeys/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                status.textContent = 'Passkey added.';
+                window.location.reload();
+            } catch (error) {
+                status.textContent = error.message || 'Passkey registration failed.';
+                passkeyRegister.disabled = false;
+            }
+        });
+    }
+
+    const passkeyLogin = document.querySelector('[data-passkey-login]');
+    if (passkeyLogin) {
+        const status = document.querySelector('[data-passkey-login-status]');
+        passkeyLogin.addEventListener('click', async () => {
+            if (!window.PublicKeyCredential) {
+                status.textContent = 'This browser does not support passkeys.';
+                return;
+            }
+            passkeyLogin.disabled = true;
+            status.textContent = 'Waiting for your passkey...';
+            try {
+                const data = await jsonFetch('/login/2fa/passkey/options');
+                const credential = await navigator.credentials.get({ publicKey: requestOptions(data.options) });
+                const result = await jsonFetch('/login/2fa/passkey/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(passkeyToPayload(credential)),
+                });
+                window.location.href = result.redirect || '/';
+            } catch (error) {
+                status.textContent = error.message || 'Passkey verification failed.';
+                passkeyLogin.disabled = false;
+            }
         });
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Twitkey\Models;
 
 use Twitkey\Core\Database;
+use Twitkey\Core\Helpers;
 
 final class CommunityNote
 {
@@ -13,7 +14,7 @@ final class CommunityNote
     public static function add(int $tweetId, int $authorId, string $body): void
     {
         $body = trim($body);
-        if ($body === '' || strlen($body) > 500) {
+        if ($body === '' || Helpers::mbLength($body) > 500) {
             throw new \InvalidArgumentException('Community notes must be between 1 and 500 characters.');
         }
         Database::instance()->execute(
@@ -28,7 +29,7 @@ final class CommunityNote
     public static function addApproved(int $tweetId, int $authorId, string $body, int $adminId): void
     {
         $body = trim($body);
-        if ($body === '' || strlen($body) > 500) {
+        if ($body === '' || Helpers::mbLength($body) > 500) {
             throw new \InvalidArgumentException('Community notes must be between 1 and 500 characters.');
         }
         if (!Tweet::findWithUser($tweetId, true)) {

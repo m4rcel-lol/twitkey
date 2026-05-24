@@ -47,6 +47,7 @@ $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $requestMethod = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 $currentUser = Auth::user();
 $maintenanceAllowed = ($requestPath === '/login' && in_array($requestMethod, ['GET', 'POST'], true))
+    || str_starts_with($requestPath, '/login/2fa')
     || ($requestPath === '/logout' && $requestMethod === 'GET');
 if (Helpers::maintenanceModeEnabled() && !User::isOwnerRow($currentUser) && !$maintenanceAllowed) {
     http_response_code(503);
@@ -70,6 +71,10 @@ $router->add('GET', '/policy', [HomeController::class, 'privacy']);
 $router->add('GET', '/terms', [HomeController::class, 'terms']);
 $router->add('GET', '/login', [AuthController::class, 'loginForm']);
 $router->add('POST', '/login', [AuthController::class, 'login']);
+$router->add('GET', '/login/2fa', [AuthController::class, 'twoFactorForm']);
+$router->add('POST', '/login/2fa/totp', [AuthController::class, 'verifyTwoFactorTotp']);
+$router->add('GET', '/login/2fa/passkey/options', [AuthController::class, 'passkeyLoginOptions']);
+$router->add('POST', '/login/2fa/passkey/verify', [AuthController::class, 'verifyPasskeyLogin']);
 $router->add('GET', '/register', [AuthController::class, 'registerForm']);
 $router->add('POST', '/register', [AuthController::class, 'register']);
 $router->add('GET', '/logout', [AuthController::class, 'logout']);
@@ -78,6 +83,12 @@ $router->add('POST', '/accounts/switch/{id}', [AuthController::class, 'switchAcc
 $router->add('POST', '/accounts/remove/{id}', [AuthController::class, 'removeAccount']);
 $router->add('GET', '/settings', [UserController::class, 'settings']);
 $router->add('POST', '/settings', [UserController::class, 'updateSettings']);
+$router->add('POST', '/settings/2fa/totp/create', [UserController::class, 'createTotpSecret']);
+$router->add('POST', '/settings/2fa/totp/enable', [UserController::class, 'enableTotp']);
+$router->add('POST', '/settings/2fa/totp/disable', [UserController::class, 'disableTotp']);
+$router->add('GET', '/settings/2fa/passkeys/options', [UserController::class, 'passkeyOptions']);
+$router->add('POST', '/settings/2fa/passkeys/register', [UserController::class, 'registerPasskey']);
+$router->add('POST', '/settings/2fa/passkeys/{id}/delete', [UserController::class, 'deletePasskey']);
 $router->add('GET', '/settings/affiliations', [UserController::class, 'affiliations']);
 $router->add('POST', '/settings/affiliations', [UserController::class, 'updateAffiliations']);
 $router->add('POST', '/tweet', [TweetController::class, 'create']);

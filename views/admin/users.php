@@ -20,6 +20,9 @@ use Twitkey\Models\User;
         <?php
         $isOwner = User::isOwnerRow($user);
         $isSelf = $currentUser && (int)$currentUser['id'] === (int)$user['id'];
+        $currentIsOwner = User::isOwnerRow($currentUser ?? null);
+        $isAdminTarget = (int)($user['is_admin'] ?? 0) === 1;
+        $canResetPassword = !$isAdminTarget || $currentIsOwner;
         $verifiedLabel = $isOwner ? 'owner' : ($user['verified_type'] ?: ((int)($user['is_verified'] ?? 0) === 1 ? 'normal' : '-'));
         ?>
         <tr>
@@ -61,8 +64,8 @@ use Twitkey\Models\User;
                         <button name="action" value="remove_verification">Remove Verification</button>
                         <input type="text" name="new_username" maxlength="15" placeholder="New username">
                         <button name="action" value="change_username">Change Username</button>
-                        <input type="password" name="new_password" minlength="8" placeholder="New password">
-                        <button name="action" value="reset_password">Reset Password</button>
+                        <input type="password" name="new_password" minlength="8" placeholder="<?= $canResetPassword ? 'New password' : 'Owner-only admin reset' ?>"<?= $canResetPassword ? '' : ' disabled' ?>>
+                        <button name="action" value="reset_password"<?= $canResetPassword ? '' : ' disabled title="Only the Twitkey owner can reset administrator passwords."' ?>><?= $canResetPassword ? 'Reset Password' : 'Owner Only Reset' ?></button>
                         <input type="text" name="suspension_reason" maxlength="240" placeholder="Suspension reason">
                         <button name="action" value="<?= (int)$user['is_suspended'] === 1 ? 'unsuspend' : 'suspend' ?>"><?= (int)$user['is_suspended'] === 1 ? 'Unsuspend' : 'Ban Account' ?></button>
                         <button name="action" value="delete" data-confirm="Mark this account as deleted?">Mark Deleted</button>

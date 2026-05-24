@@ -46,7 +46,7 @@ final class AdminController
     {
         Helpers::verifyCsrf();
         $admin = Auth::requireAdmin();
-        $message = substr(trim((string)($_POST['message'] ?? '')), 0, 240);
+        $message = Helpers::mbLimit(trim((string)($_POST['message'] ?? '')), 240);
         $active = isset($_POST['is_active']) && $message !== '' ? 1 : 0;
         Database::instance()->execute('UPDATE site_alerts SET is_active = 0');
         Database::instance()->execute(
@@ -111,7 +111,7 @@ final class AdminController
                 'unsuspend' => User::setSuspended($userId, false),
                 'delete' => User::delete($userId, (string)($_POST['suspension_reason'] ?? '')),
                 'change_username' => User::changeUsername($userId, (string)($_POST['new_username'] ?? '')),
-                'reset_password' => User::setPassword($userId, (string)($_POST['new_password'] ?? '')),
+                'reset_password' => User::setPassword($userId, (string)($_POST['new_password'] ?? ''), $admin),
                 default => throw new \InvalidArgumentException('Unknown admin action.'),
             };
             $this->log((int)$admin['id'], $action, 'user', $userId, (string)($_POST['suspension_reason'] ?? ''));
@@ -231,7 +231,7 @@ final class AdminController
     {
         Database::instance()->execute(
             'INSERT INTO admin_log (admin_id, action, target_type, target_id, note) VALUES (:admin_id, :action, :target_type, :target_id, :note)',
-            ['admin_id' => $adminId, 'action' => $action, 'target_type' => $targetType, 'target_id' => $targetId, 'note' => substr(trim($note), 0, 240)]
+            ['admin_id' => $adminId, 'action' => $action, 'target_type' => $targetType, 'target_id' => $targetId, 'note' => Helpers::mbLimit(trim($note), 240)]
         );
     }
 }

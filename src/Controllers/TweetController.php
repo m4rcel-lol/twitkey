@@ -364,7 +364,7 @@ final class TweetController
             }
             $metadata['location_lat'] = $latitude;
             $metadata['location_lng'] = $longitude;
-            $metadata['location_label'] = substr($label !== '' ? $label : sprintf('%.5f, %.5f', $latitude, $longitude), 0, 160);
+            $metadata['location_label'] = Helpers::mbLimit($label !== '' ? $label : sprintf('%.5f, %.5f', $latitude, $longitude), 160);
         }
 
         $scheduled = trim((string)($_POST['scheduled_at'] ?? ''));
@@ -384,7 +384,7 @@ final class TweetController
         foreach ((array)($_POST['poll_options'] ?? []) as $option) {
             $option = trim((string)$option);
             if ($option !== '') {
-                $options[] = substr($option, 0, 80);
+                $options[] = Helpers::mbLimit($option, 80);
             }
         }
         if ($question !== '' || $options !== []) {
@@ -393,7 +393,7 @@ final class TweetController
             }
             $pollStart = !empty($metadata['scheduled_at']) ? strtotime((string)$metadata['scheduled_at']) : time();
             $metadata['poll'] = [
-                'question' => substr($question, 0, 120),
+                'question' => Helpers::mbLimit($question, 120),
                 'options' => $options,
                 'closes_at' => date('Y-m-d H:i:s', ($pollStart ?: time()) + 86400),
             ];

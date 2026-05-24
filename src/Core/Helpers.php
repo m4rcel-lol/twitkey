@@ -50,6 +50,36 @@ final class Helpers
     }
 
     /**
+     * Return a UTF-8 character count for user-facing text.
+     */
+    public static function mbLength(string $text): int
+    {
+        return function_exists('mb_strlen') ? mb_strlen($text, 'UTF-8') : strlen($text);
+    }
+
+    /**
+     * Return a UTF-8-safe substring for user-facing text.
+     */
+    public static function mbLimit(string $text, int $length): string
+    {
+        if ($length <= 0) {
+            return '';
+        }
+        return function_exists('mb_substr') ? mb_substr($text, 0, $length, 'UTF-8') : substr($text, 0, $length);
+    }
+
+    /**
+     * Truncate UTF-8 text with a trailing ellipsis.
+     */
+    public static function mbEllipsis(string $text, int $length): string
+    {
+        if (self::mbLength($text) <= $length) {
+            return $text;
+        }
+        return rtrim(self::mbLimit($text, max(0, $length - 3))) . '...';
+    }
+
+    /**
      * Render a view, optionally inside the base layout.
      *
      * @param array<string, mixed> $data
@@ -421,10 +451,7 @@ final class Helpers
      */
     public static function truncate(string $text, int $length): string
     {
-        if (strlen($text) <= $length) {
-            return $text;
-        }
-        return rtrim(substr($text, 0, max(0, $length - 3))) . '...';
+        return self::mbEllipsis($text, $length);
     }
 
     /**

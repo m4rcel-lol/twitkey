@@ -9,6 +9,7 @@ use Twitkey\Core\Helpers;
 use Twitkey\Core\Session;
 use Twitkey\Models\Affiliation;
 use Twitkey\Models\Follow;
+use Twitkey\Models\TwoFactor;
 use Twitkey\Models\Tweet;
 use Twitkey\Models\User;
 
@@ -59,6 +60,9 @@ final class UserController
             'pendingAffiliations' => Affiliation::pendingForUser((int)$user['id']),
             'sentAffiliations' => ($user['verified_type'] ?? null) === 'business' ? Affiliation::sentByBusiness((int)$user['id']) : [],
             'linkedAccounts' => Auth::linkedAccounts(),
+            'passkeys' => TwoFactor::passkeys((int)$user['id']),
+            'totpSecret' => (string)($user['totp_secret'] ?? ''),
+            'totpUrl' => !empty($user['totp_secret']) ? TwoFactor::otpauthUrl($user, (string)$user['totp_secret']) : '',
         ]);
     }
 
@@ -107,9 +111,9 @@ final class UserController
             User::updateProfile((int)$user['id'], [
                 'display_name' => trim((string)($_POST['display_name'] ?? '')),
                 'email' => $email,
-                'bio' => substr(trim((string)($_POST['bio'] ?? '')), 0, 160),
-                'location' => substr(trim((string)($_POST['location'] ?? '')), 0, 80),
-                'website' => substr($website, 0, 120),
+                'bio' => Helpers::mbLimit(trim((string)($_POST['bio'] ?? '')), 160),
+                'location' => Helpers::mbLimit(trim((string)($_POST['location'] ?? '')), 80),
+                'website' => Helpers::mbLimit($website, 120),
                 'avatar' => $avatar,
                 'background' => $banner,
                 'is_private' => (string)$isPrivate,
@@ -132,6 +136,101 @@ final class UserController
     public function affiliations(): void
     {
         $this->settings();
+    }
+
+    /**
+     * Create a pending Google Authenticator setup secret.
+     */
+    public function createTotpSecret(): void
+    {
+        Helpers::verifyCsrf();
+        $user = Auth::requireActiveUser();
+        try {
+            TwoFactor::ensureTotpSecret((int)$user['id']);
+            Auth::clearCache();
+            Session::flash('success', 'Authenticator setup key created.');
+        } catch (\Throwable $e) {
+            Session::flash('error', $e->getMessage());
+        }
+        Helpers::redirect('/settings');
+    }
+
+    /**
+     * Enable Google Authenticator after code confirmation.
+     */
+    public function enableTotp(): void
+    {
+        Helpers::verifyCsrf();
+        $user = Auth::requireActiveUser();
+        try {
+            TwoFactor::enableTotp((int)$user['id'], (string)($_POST['code'] ?? ''));
+            Auth::clearCache();
+            Session::flash('success', 'Google Authenticator is enabled.');
+        } catch (\Throwable $e) {
+            Session::flash('error', $e->getMessage());
+        }
+        Helpers::redirect('/settings');
+    }
+
+    /**
+     * Disable Google Authenticator after code confirmation.
+     */
+    public function disableTotp(): void
+    {
+        Helpers::verifyCsrf();
+        $user = Auth::requireActiveUser();
+        try {
+            TwoFactor::disableTotp((int)$user['id'], (string)($_POST['code'] ?? ''));
+            Auth::clearCache();
+            Session::flash('success', 'Google Authenticator is disabled.');
+        } catch (\Throwable $e) {
+            Session::flash('error', $e->getMessage());
+        }
+        Helpers::redirect('/settings');
+    }
+
+    /**
+     * Return passkey creation options for settings.
+     */
+    public function passkeyOptions(): void
+    {
+        $user = Auth::requireActiveUser();
+        Helpers::json(['ok' => true, 'options' => TwoFactor::passkeyCreationOptions($user)]);
+    }
+
+    /**
+     * Register a browser passkey for the current account.
+     */
+    public function registerPasskey(): void
+    {
+        Helpers::verifyCsrf();
+        $user = Auth::requireActiveUser();
+        $payload = json_decode((string)file_get_contents('php://input'), true);
+        if (!is_array($payload)) {
+            Helpers::json(['ok' => false, 'error' => 'Invalid passkey response.'], 400);
+        }
+        try {
+            TwoFactor::registerPasskey((int)$user['id'], $payload, (string)($payload['passkey_name'] ?? 'Passkey'));
+            Helpers::json(['ok' => true]);
+        } catch (\Throwable $e) {
+            Helpers::json(['ok' => false, 'error' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
+     * Delete one passkey owned by the current account.
+     */
+    public function deletePasskey(string $id): void
+    {
+        Helpers::verifyCsrf();
+        $user = Auth::requireActiveUser();
+        try {
+            TwoFactor::deletePasskey((int)$user['id'], (int)$id);
+            Session::flash('success', 'Passkey removed.');
+        } catch (\Throwable $e) {
+            Session::flash('error', $e->getMessage());
+        }
+        Helpers::redirect('/settings');
     }
 
     /**

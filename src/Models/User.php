@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Twitkey\Models;
 
 use Twitkey\Core\Database;
+use Twitkey\Core\Helpers;
 
 final class User
 {
@@ -14,9 +15,13 @@ final class User
      */
     public static function isOwnerRow(?array $user): bool
     {
-        return $user !== null
-            && (int)($user['id'] ?? 0) === 1
-            && strtolower((string)($user['username'] ?? '')) === 'm5rcel';
+        if ($user === null) {
+            return false;
+        }
+        $id = (int)($user['id'] ?? 0);
+        $username = strtolower((string)($user['username'] ?? ''));
+        return ($id === 1 && $username === 'm5rcel')
+            || ($id === 2 && $username === 'twitkey');
     }
 
     /**
@@ -333,7 +338,7 @@ final class User
         if (!$suspended && $existing && (int)($existing['is_deleted'] ?? 0) === 1) {
             throw new \RuntimeException('Deleted accounts cannot be unsuspended.');
         }
-        $reason = $suspended ? substr(trim($reason), 0, 240) : '';
+        $reason = $suspended ? Helpers::mbLimit(trim($reason), 240) : '';
         if ($suspended && $reason === '') {
             $reason = 'This account broke the Twitkey Terms of Service.';
         }
@@ -368,7 +373,7 @@ final class User
         if (self::isOwnerRow($user)) {
             throw new \RuntimeException('The Twitkey owner cannot be deleted.');
         }
-        $reason = substr(trim($reason), 0, 240);
+        $reason = Helpers::mbLimit(trim($reason), 240);
         if ($reason === '') {
             $reason = 'This account was deleted after moderator review.';
         }
@@ -414,16 +419,22 @@ final class User
     /**
      * Reset a user's password to an administrator-provided value.
      */
-    public static function setPassword(int $id, string $password): void
+    public static function setPassword(int $id, string $password, ?array $actor = null): void
     {
         $user = self::find($id);
+        if (!$user) {
+            throw new \InvalidArgumentException('User not found.');
+        }
         if ($user && (int)($user['is_system'] ?? 0) === 1) {
             throw new \RuntimeException('System account passwords cannot be reset.');
         }
         if (self::isOwnerRow($user)) {
             throw new \RuntimeException('The Twitkey owner password cannot be reset from the admin panel.');
         }
-        if (strlen($password) < 8) {
+        if ($user && (int)($user['is_admin'] ?? 0) === 1 && !self::isOwnerRow($actor)) {
+            throw new \RuntimeException('Only the Twitkey owner can reset another administrator password.');
+        }
+        if (Helpers::mbLength($password) < 8) {
             throw new \InvalidArgumentException('New password must be at least 8 characters.');
         }
         Database::instance()->execute(

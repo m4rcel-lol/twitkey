@@ -2,10 +2,10 @@ FROM php:8.2-fpm-alpine
 
 RUN apk add --no-cache \
     sqlite sqlite-dev \
-    libpng-dev libjpeg-turbo-dev freetype-dev libwebp-dev \
+    libpng-dev libjpeg-turbo-dev freetype-dev libwebp-dev oniguruma-dev \
     caddy \
     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
-    && docker-php-ext-install pdo pdo_sqlite pdo_mysql gd
+    && docker-php-ext-install pdo pdo_sqlite pdo_mysql gd mbstring
 
 WORKDIR /var/www/twitkey
 COPY . .

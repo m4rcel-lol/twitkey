@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Twitkey\Models;
 
 use Twitkey\Core\Database;
+use Twitkey\Core\Helpers;
 
 final class Tweet
 {
@@ -15,7 +16,7 @@ final class Tweet
     public static function create(int $userId, string $body, ?int $replyToId = null, ?int $retweetOfId = null, array $metadata = []): array
     {
         $body = trim($body);
-        if (strlen($body) > 140) {
+        if (Helpers::mbLength($body) > 140) {
             throw new \InvalidArgumentException('Tweets are limited to 140 characters.');
         }
         if ($body === '' && empty($metadata['media']) && empty($metadata['gif_url']) && empty($metadata['poll'])) {
@@ -278,9 +279,7 @@ final class Tweet
                 throw new \InvalidArgumentException('You already retweeted this.');
             }
             $body = 'RT @' . $original['username'] . ': ' . $original['body'];
-            if (strlen($body) > 140) {
-                $body = substr($body, 0, 137) . '...';
-            }
+            $body = Helpers::mbEllipsis($body, 140);
             $newTweetId = self::insertTweet($db, $userId, $body, null, $tweetId);
             $db->execute('INSERT INTO retweets (user_id, tweet_id) VALUES (:user_id, :tweet_id)', ['user_id' => $userId, 'tweet_id' => $tweetId]);
             $db->execute('UPDATE tweets SET retweet_count = retweet_count + 1 WHERE id = :id', ['id' => $tweetId]);

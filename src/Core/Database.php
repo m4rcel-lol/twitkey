@@ -308,6 +308,8 @@ final class Database
             'follow_privacy' => "VARCHAR(20) DEFAULT 'everyone'",
             'post_visibility' => "VARCHAR(20) DEFAULT 'public'",
             'dm_privacy' => "VARCHAR(20) DEFAULT 'mutuals'",
+            'totp_secret' => 'VARCHAR(64) DEFAULT NULL',
+            'totp_enabled' => 'INTEGER DEFAULT 0',
         ] as $column => $definition) {
             if (!$this->columnExists('users', $column)) {
                 $this->pdo->exec('ALTER TABLE users ADD COLUMN ' . $column . ' ' . $definition);
@@ -384,6 +386,17 @@ final class Database
                 updated_by INTEGER DEFAULT NULL REFERENCES users(id),
                 updated_at TEXT DEFAULT (datetime(\'now\'))
             )',
+            'CREATE TABLE IF NOT EXISTS two_factor_passkeys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                credential_id TEXT NOT NULL UNIQUE,
+                public_key TEXT NOT NULL,
+                alg INTEGER NOT NULL,
+                sign_count INTEGER DEFAULT 0,
+                name TEXT DEFAULT \'Passkey\',
+                created_at TEXT DEFAULT (datetime(\'now\')),
+                last_used_at TEXT DEFAULT NULL
+            )',
             'CREATE INDEX IF NOT EXISTS idx_tweets_scheduled_at ON tweets(scheduled_at)',
             'CREATE INDEX IF NOT EXISTS idx_tweet_media_tweet_id ON tweet_media(tweet_id)',
             'CREATE INDEX IF NOT EXISTS idx_poll_options_poll_id ON poll_options(poll_id)',
@@ -392,6 +405,7 @@ final class Database
             'CREATE INDEX IF NOT EXISTS idx_follow_requests_requester_status ON follow_requests(requester_id, status)',
             'CREATE INDEX IF NOT EXISTS idx_direct_messages_recipient_read ON direct_messages(recipient_id, is_read)',
             'CREATE INDEX IF NOT EXISTS idx_site_alerts_active_updated ON site_alerts(is_active, updated_at)',
+            'CREATE INDEX IF NOT EXISTS idx_passkeys_user_id ON two_factor_passkeys(user_id)',
         ];
 
         foreach ($statements as $statement) {
@@ -456,24 +470,26 @@ final class Database
      */
     private function ensureOwnerAccountState(): void
     {
-        $owner = $this->one('SELECT id, username FROM users WHERE id = :id LIMIT 1', ['id' => 1]);
-        if (!$owner || strtolower((string)$owner['username']) !== 'm5rcel') {
-            return;
+        foreach ([[1, 'm5rcel'], [2, 'twitkey']] as [$id, $username]) {
+            $owner = $this->one('SELECT id, username FROM users WHERE id = :id LIMIT 1', ['id' => $id]);
+            if (!$owner || strtolower((string)$owner['username']) !== $username) {
+                continue;
+            }
+            $this->execute(
+                "UPDATE users
+                 SET is_admin = 1,
+                     role = 'admin',
+                     is_verified = 1,
+                     is_suspended = 0,
+                     is_deleted = 0,
+                     suspension_reason = '',
+                     moderation_reason = '',
+                     moderation_reviewed_at = NULL,
+                     updated_at = :updated_at
+                 WHERE id = :id AND lower(username) = :username",
+                ['updated_at' => date('Y-m-d H:i:s'), 'id' => $id, 'username' => $username]
+            );
         }
-        $this->execute(
-            "UPDATE users
-             SET is_admin = 1,
-                 role = 'admin',
-                 is_verified = 1,
-                 is_suspended = 0,
-                 is_deleted = 0,
-                 suspension_reason = '',
-                 moderation_reason = '',
-                 moderation_reviewed_at = NULL,
-                 updated_at = :updated_at
-             WHERE id = 1 AND lower(username) = :username",
-            ['updated_at' => date('Y-m-d H:i:s'), 'username' => 'm5rcel']
-        );
     }
 
     /**

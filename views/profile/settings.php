@@ -66,6 +66,65 @@
 </form>
 
 <div class="content-header secondary-heading">
+    <h1>Two-Factor Authentication</h1>
+</div>
+<div class="settings-form two-factor-settings">
+    <div class="settings-section">
+        <h2>Google Authenticator</h2>
+        <?php if ((int)($user['totp_enabled'] ?? 0) === 1): ?>
+            <div class="security-status enabled">Enabled</div>
+            <form action="/settings/2fa/totp/disable" method="post" class="compact-form">
+                <?= Helpers::csrfField() ?>
+                <label>Current code
+                    <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" required>
+                </label>
+                <button type="submit" class="secondary-button">Disable Google Authenticator</button>
+            </form>
+        <?php elseif ($totpSecret !== ''): ?>
+            <div class="security-status pending">Waiting for confirmation</div>
+            <p class="tool-hint">Add this setup key in Google Authenticator, then enter the six-digit code it shows.</p>
+            <div class="totp-secret"><?= Helpers::h($totpSecret) ?></div>
+            <div class="tool-hint break-word"><?= Helpers::h($totpUrl) ?></div>
+            <form action="/settings/2fa/totp/enable" method="post" class="compact-form">
+                <?= Helpers::csrfField() ?>
+                <label>Authenticator code
+                    <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" required>
+                </label>
+                <button type="submit" class="primary-button">Enable Google Authenticator</button>
+            </form>
+        <?php else: ?>
+            <div class="security-status">Not enabled</div>
+            <form action="/settings/2fa/totp/create" method="post" class="compact-form">
+                <?= Helpers::csrfField() ?>
+                <button type="submit" class="primary-button">Create Google Authenticator setup key</button>
+            </form>
+        <?php endif; ?>
+    </div>
+
+    <div class="settings-section">
+        <h2>Passkeys</h2>
+        <button type="button" class="primary-button" data-passkey-register>Add passkey</button>
+        <div class="tool-hint" data-passkey-register-status></div>
+        <?php if ($passkeys === []): ?>
+            <div class="empty-state">No passkeys are registered for this account.</div>
+        <?php else: ?>
+            <?php foreach ($passkeys as $passkey): ?>
+                <div class="passkey-row">
+                    <div>
+                        <strong><?= Helpers::h($passkey['name']) ?></strong>
+                        <div class="muted">Created <?= Helpers::h($passkey['created_at']) ?><?= $passkey['last_used_at'] ? ' · Last used ' . Helpers::h($passkey['last_used_at']) : '' ?></div>
+                    </div>
+                    <form action="/settings/2fa/passkeys/<?= (int)$passkey['id'] ?>/delete" method="post">
+                        <?= Helpers::csrfField() ?>
+                        <button type="submit" class="mini-button" data-confirm="Remove this passkey?">Remove</button>
+                    </form>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+</div>
+
+<div class="content-header secondary-heading">
     <h1>Account Switching</h1>
 </div>
 <div class="account-switcher-settings">

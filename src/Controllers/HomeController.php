@@ -171,7 +171,7 @@ final class HomeController
         $sender = Auth::requireActiveUser();
         $recipient = User::findByUsername($user);
         $body = trim((string)($_POST['body'] ?? ''));
-        if (!$recipient || $body === '' || strlen($body) > 1000) {
+        if (!$recipient || $body === '' || Helpers::mbLength($body) > 1000) {
             if (Helpers::wantsJson()) {
                 Helpers::json(['ok' => false, 'error' => 'Message must be 1-1000 characters and recipient must exist.'], 400);
             }

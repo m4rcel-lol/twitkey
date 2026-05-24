@@ -25,12 +25,26 @@ CREATE TABLE IF NOT EXISTS users (
     post_visibility TEXT DEFAULT 'public' CHECK(post_visibility IN ('public','followers')),
     dm_privacy TEXT DEFAULT 'mutuals' CHECK(dm_privacy IN ('everyone','mutuals','none')),
     theme TEXT DEFAULT 'classic' CHECK(theme IN ('classic','night','forest','ruby','high_contrast')),
+    totp_secret TEXT DEFAULT NULL,
+    totp_enabled INTEGER DEFAULT 0,
     auto_verified_by_affiliation INTEGER DEFAULT 0,
     follower_count   INTEGER DEFAULT 0,
     following_count  INTEGER DEFAULT 0,
     tweet_count      INTEGER DEFAULT 0,
     created_at   TEXT DEFAULT (datetime('now')),
     updated_at   TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS two_factor_passkeys (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    credential_id TEXT NOT NULL UNIQUE,
+    public_key    TEXT NOT NULL,
+    alg           INTEGER NOT NULL,
+    sign_count    INTEGER DEFAULT 0,
+    name          TEXT DEFAULT 'Passkey',
+    created_at    TEXT DEFAULT (datetime('now')),
+    last_used_at  TEXT DEFAULT NULL
 );
 
 -- TWEETS
