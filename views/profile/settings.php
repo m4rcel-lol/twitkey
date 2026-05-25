@@ -56,11 +56,16 @@
         <h2>Theme</h2>
         <label>Site theme
             <select name="theme">
-                <?php foreach (['classic' => 'Classic 2009', 'night' => 'Night', 'forest' => 'Forest', 'ruby' => 'Ruby', 'high_contrast' => 'High contrast'] as $themeValue => $themeLabel): ?>
-                    <option value="<?= Helpers::h($themeValue) ?>"<?= ($user['theme'] ?? 'classic') === $themeValue ? ' selected' : '' ?>><?= Helpers::h($themeLabel) ?></option>
+                <?php $selectedTheme = (string)($user['theme_choice'] ?? $user['theme'] ?? 'classic'); ?>
+                <?php foreach (Helpers::themes() as $themeValue => $themeLabel): ?>
+                    <option value="<?= Helpers::h($themeValue) ?>"<?= $selectedTheme === $themeValue ? ' selected' : '' ?>><?= Helpers::h($themeLabel) ?></option>
                 <?php endforeach; ?>
             </select>
         </label>
+        <label>Custom theme CSS
+            <textarea name="custom_theme_css" class="custom-theme-editor" maxlength="20000" spellcheck="false"><?= Helpers::h(((string)($user['custom_theme_css'] ?? '')) !== '' ? (string)$user['custom_theme_css'] : Helpers::customThemeTemplate()) ?></textarea>
+        </label>
+        <div class="tool-hint">Use the Custom CSS theme to apply this stylesheet. Base stylesheet: <a href="/css/twitkey.css" target="_blank" rel="noopener">/css/twitkey.css</a>.</div>
     </div>
     <button type="submit" class="primary-button">Save settings</button>
 </form>

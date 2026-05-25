@@ -72,6 +72,106 @@ body.theme-ruby {
     --btn-primary-bg-hover: #922044;
 }
 
+body.theme-ocean {
+    --bg-body: #e4f6f7;
+    --bg-header: #16828c;
+    --bg-header-top: #07535d;
+    --text-link: #087f8f;
+    --text-link-hover: #04404a;
+    --border-main: #bddde2;
+    --border-dark: #8ebbc2;
+    --btn-primary-bg: #16828c;
+    --btn-primary-bg-hover: #0f6570;
+}
+
+body.theme-lavender {
+    --bg-body: #f2edfb;
+    --bg-header: #7660a8;
+    --bg-header-top: #4b3c77;
+    --text-link: #654aa5;
+    --text-link-hover: #2e2352;
+    --border-main: #d8cdea;
+    --border-dark: #b8a7d7;
+    --btn-primary-bg: #7660a8;
+    --btn-primary-bg-hover: #5c488d;
+}
+
+body.theme-gold {
+    --bg-body: #fff7df;
+    --bg-header: #a36f18;
+    --bg-header-top: #6a470d;
+    --text-link: #875a0f;
+    --text-link-hover: #3f2907;
+    --border-main: #ead7a7;
+    --border-dark: #d0b56c;
+    --btn-primary-bg: #a36f18;
+    --btn-primary-bg-hover: #805511;
+}
+
+body.theme-bubblegum {
+    --bg-body: #ffeff8;
+    --bg-header: #d34a8a;
+    --bg-header-top: #8b2858;
+    --text-link: #b72e72;
+    --text-link-hover: #5e173c;
+    --border-main: #efc6dc;
+    --border-dark: #da94b9;
+    --btn-primary-bg: #d34a8a;
+    --btn-primary-bg-hover: #a9346b;
+}
+
+body.theme-grayscale {
+    --bg-body: #eeeeee;
+    --bg-header: #575757;
+    --bg-header-top: #242424;
+    --text-link: #333333;
+    --text-link-hover: #000000;
+    --border-main: #cfcfcf;
+    --border-dark: #a8a8a8;
+    --btn-primary-bg: #575757;
+    --btn-primary-bg-hover: #333333;
+}
+
+body.theme-midnight {
+    --bg-body: #111827;
+    --bg-white: #101723;
+    --bg-sidebar: #121c2a;
+    --bg-header: #315f9c;
+    --bg-header-top: #07111f;
+    --bg-tweet-box: #142033;
+    --text-primary: #e9f1f8;
+    --text-secondary: #9fb1c3;
+    --text-link: #8cc9ff;
+    --text-link-hover: #d6ecff;
+    --text-username: #ffffff;
+    --text-meta: #9fb1c3;
+    --border-main: #28445d;
+    --border-dark: #3e5f7b;
+    --border-input: #6f8ba3;
+    --btn-secondary-bg: #182638;
+    --btn-secondary-border: #42627f;
+}
+
+body.theme-terminal {
+    --bg-body: #07140c;
+    --bg-white: #07100a;
+    --bg-sidebar: #09170e;
+    --bg-header: #147a39;
+    --bg-header-top: #031f0e;
+    --bg-tweet-box: #0b1c11;
+    --text-primary: #daf7df;
+    --text-secondary: #89b992;
+    --text-link: #64d982;
+    --text-link-hover: #c9ffd3;
+    --text-username: #ffffff;
+    --text-meta: #89b992;
+    --border-main: #214f2e;
+    --border-dark: #347246;
+    --border-input: #5a9168;
+    --btn-secondary-bg: #102718;
+    --btn-secondary-border: #3d744b;
+}
+
 body.theme-high_contrast {
     --bg-body: #ffffff;
     --bg-white: #ffffff;
@@ -91,6 +191,10 @@ body.theme-high_contrast {
     --btn-primary-bg-hover: #333333;
 }
 
+body.theme-custom {
+    --bg-input: #ffffff;
+}
+
 * {
     box-sizing: border-box;
 }
@@ -104,46 +208,46 @@ body {
     line-height: 18px;
 }
 
-body.theme-night .page-wrap,
-body.theme-night .page-wrap-wide,
-body.theme-night .main-col,
-body.theme-night .main-col-wide,
-body.theme-night .sidebar,
-body.theme-night .tweet-row,
-body.theme-night .landing-hero,
-body.theme-night .landing-preview,
-body.theme-night .profile-header,
-body.theme-night .side-box,
-body.theme-night .dm-thread,
-body.theme-night .dm-messages,
-body.theme-night .settings-form,
-body.theme-night .static-page {
+body:is(.theme-night, .theme-midnight, .theme-terminal) .page-wrap,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .page-wrap-wide,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .main-col,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .main-col-wide,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .sidebar,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .tweet-row,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .landing-hero,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .landing-preview,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .profile-header,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .side-box,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .dm-thread,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .dm-messages,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .settings-form,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .static-page {
     background: var(--bg-white);
 }
 
-body.theme-night .content-header,
-body.theme-night .side-header,
-body.theme-night .landing-login,
-body.theme-night .tweet-row:hover,
-body.theme-night .dm-message.mine,
-body.theme-night .account-switch-row.active {
-    background: #172532;
+body:is(.theme-night, .theme-midnight, .theme-terminal) .content-header,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .side-header,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .landing-login,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .tweet-row:hover,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .dm-message.mine,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .account-switch-row.active {
+    background: var(--bg-tweet-box);
 }
 
-body.theme-night input,
-body.theme-night textarea,
-body.theme-night select {
+body:is(.theme-night, .theme-midnight, .theme-terminal) input,
+body:is(.theme-night, .theme-midnight, .theme-terminal) textarea,
+body:is(.theme-night, .theme-midnight, .theme-terminal) select {
     background: #f8fbfd;
     color: #111;
 }
 
-body.theme-night .admin-table th,
-body.theme-night .admin-stats div,
-body.theme-night .tweet-poll,
-body.theme-night .tweet-link-card,
-body.theme-night .tweet-embed,
-body.theme-night .tweet-audio {
-    background: #172532;
+body:is(.theme-night, .theme-midnight, .theme-terminal) .admin-table th,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .admin-stats div,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .tweet-poll,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .tweet-link-card,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .tweet-embed,
+body:is(.theme-night, .theme-midnight, .theme-terminal) .tweet-audio {
+    background: var(--bg-tweet-box);
 }
 
 @keyframes oldFadeIn {
@@ -1620,6 +1724,15 @@ button,
 .settings-form textarea {
     height: 76px;
     resize: vertical;
+}
+
+.settings-form .custom-theme-editor {
+    min-height: 310px;
+    font-family: Consolas, Monaco, "Courier New", monospace;
+    font-size: 12px;
+    line-height: 16px;
+    white-space: pre;
+    tab-size: 4;
 }
 
 .settings-section {

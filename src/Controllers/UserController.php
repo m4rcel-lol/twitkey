@@ -92,6 +92,7 @@ final class UserController
             $postVisibility = (string)($_POST['post_visibility'] ?? 'public');
             $dmPrivacy = (string)($_POST['dm_privacy'] ?? 'mutuals');
             $theme = (string)($_POST['theme'] ?? 'classic');
+            $customThemeCss = Helpers::sanitizeCustomThemeCss((string)($_POST['custom_theme_css'] ?? ''));
             if (!in_array($followPrivacy, ['everyone', 'approve'], true)) {
                 throw new \InvalidArgumentException('Invalid follow privacy setting.');
             }
@@ -101,7 +102,7 @@ final class UserController
             if (!in_array($dmPrivacy, ['everyone', 'mutuals', 'none'], true)) {
                 throw new \InvalidArgumentException('Invalid message privacy setting.');
             }
-            if (!in_array($theme, ['classic', 'night', 'forest', 'ruby', 'high_contrast'], true)) {
+            if (!array_key_exists($theme, Helpers::themes())) {
                 throw new \InvalidArgumentException('Invalid theme.');
             }
             if ($isPrivate === 1) {
@@ -120,7 +121,8 @@ final class UserController
                 'follow_privacy' => $followPrivacy,
                 'post_visibility' => $postVisibility,
                 'dm_privacy' => $dmPrivacy,
-                'theme' => $theme,
+                'theme_choice' => $theme,
+                'custom_theme_css' => $customThemeCss,
             ]);
             Auth::clearCache();
             Session::flash('success', 'Settings updated.');

@@ -125,7 +125,7 @@ final class User
              SET display_name = :display_name, email = COALESCE(:email, email), bio = :bio, location = :location, website = :website,
                  avatar = COALESCE(:avatar, avatar), background = COALESCE(:background, background),
                  is_private = :is_private, follow_privacy = :follow_privacy, post_visibility = :post_visibility,
-                 dm_privacy = :dm_privacy, theme = :theme, updated_at = :updated_at
+                 dm_privacy = :dm_privacy, theme_choice = :theme_choice, custom_theme_css = :custom_theme_css, updated_at = :updated_at
              WHERE id = :id',
             [
                 'display_name' => $fields['display_name'] ?? '',
@@ -139,7 +139,8 @@ final class User
                 'follow_privacy' => $fields['follow_privacy'] ?? 'everyone',
                 'post_visibility' => $fields['post_visibility'] ?? 'public',
                 'dm_privacy' => $fields['dm_privacy'] ?? 'mutuals',
-                'theme' => $fields['theme'] ?? 'classic',
+                'theme_choice' => $fields['theme_choice'] ?? 'classic',
+                'custom_theme_css' => $fields['custom_theme_css'] ?? '',
                 'updated_at' => date('Y-m-d H:i:s'),
                 'id' => $id,
             ]

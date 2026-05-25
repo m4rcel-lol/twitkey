@@ -80,6 +80,100 @@ final class Helpers
     }
 
     /**
+     * Return selectable site themes.
+     *
+     * @return array<string, string>
+     */
+    public static function themes(): array
+    {
+        return [
+            'classic' => 'Classic 2009',
+            'night' => 'Night',
+            'forest' => 'Forest',
+            'ruby' => 'Ruby',
+            'ocean' => 'Ocean',
+            'lavender' => 'Lavender',
+            'gold' => 'Gold',
+            'bubblegum' => 'Bubblegum',
+            'grayscale' => 'Grayscale',
+            'midnight' => 'Midnight',
+            'terminal' => 'Terminal',
+            'high_contrast' => 'High contrast',
+            'custom' => 'Custom CSS',
+        ];
+    }
+
+    /**
+     * Return a starter stylesheet users can edit for their custom theme.
+     */
+    public static function customThemeTemplate(): string
+    {
+        return <<<'CSS'
+body.theme-custom {
+    --bg-body: #e8f5fd;
+    --bg-white: #ffffff;
+    --bg-sidebar: #ffffff;
+    --bg-header: #1b7dba;
+    --bg-header-top: #04538a;
+    --text-primary: #333333;
+    --text-secondary: #999999;
+    --text-link: #0084b4;
+    --text-link-hover: #003366;
+    --border-main: #d0dfe8;
+    --border-dark: #b0cce1;
+    --border-input: #c0ccd4;
+    --btn-primary-bg: #1b7dba;
+    --btn-primary-bg-hover: #1269a0;
+}
+
+body.theme-custom .topbar {
+    background: var(--bg-header-top);
+}
+
+body.theme-custom .subheader {
+    background: var(--bg-header);
+}
+
+body.theme-custom .tweet-row:hover {
+    background: #f8fcff;
+}
+CSS;
+    }
+
+    /**
+     * Validate and normalize per-user custom theme CSS.
+     */
+    public static function sanitizeCustomThemeCss(string $css): string
+    {
+        $css = trim(str_replace(["\r\n", "\r"], "\n", $css));
+        if ($css === '') {
+            return '';
+        }
+        if (self::mbLength($css) > 20000) {
+            throw new \InvalidArgumentException('Custom theme CSS must be 20,000 characters or less.');
+        }
+        $lower = strtolower($css);
+        foreach (['<', '@import', 'javascript:', 'vbscript:', 'data:', 'expression(', 'behavior:', '-moz-binding', 'url('] as $blocked) {
+            if (str_contains($lower, $blocked)) {
+                throw new \InvalidArgumentException('Custom theme CSS contains a blocked token: ' . $blocked);
+            }
+        }
+        return $css;
+    }
+
+    /**
+     * Return safe custom CSS for rendering, or an empty string if invalid.
+     */
+    public static function customThemeCssForOutput(string $css): string
+    {
+        try {
+            return self::sanitizeCustomThemeCss($css);
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    /**
      * Render a view, optionally inside the base layout.
      *
      * @param array<string, mixed> $data

@@ -292,16 +292,27 @@ final class Database
         if (!$this->columnExists('users', 'suspension_reason')) {
             $this->pdo->exec("ALTER TABLE users ADD COLUMN suspension_reason TEXT DEFAULT ''");
         }
+        $createdThemeChoice = false;
         foreach ([
             'moderation_reason' => "TEXT DEFAULT ''",
             'moderation_reviewed_at' => 'TEXT DEFAULT NULL',
             'is_deleted' => 'INTEGER DEFAULT 0',
             'theme' => "VARCHAR(32) DEFAULT 'classic'",
+            'theme_choice' => "VARCHAR(32) DEFAULT 'classic'",
             'auto_verified_by_affiliation' => 'INTEGER DEFAULT 0',
         ] as $column => $definition) {
             if (!$this->columnExists('users', $column)) {
                 $this->pdo->exec('ALTER TABLE users ADD COLUMN ' . $column . ' ' . $definition);
+                if ($column === 'theme_choice') {
+                    $createdThemeChoice = true;
+                }
             }
+        }
+        if (!$this->columnExists('users', 'custom_theme_css')) {
+            $this->pdo->exec('ALTER TABLE users ADD COLUMN custom_theme_css ' . ($this->isMysql() ? 'TEXT' : 'TEXT DEFAULT \'\''));
+        }
+        if ($createdThemeChoice) {
+            $this->pdo->exec("UPDATE users SET theme_choice = theme WHERE theme IS NOT NULL AND theme <> ''");
         }
         foreach ([
             'is_private' => 'INTEGER DEFAULT 0',

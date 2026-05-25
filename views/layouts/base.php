@@ -10,10 +10,11 @@ $notificationsLabel = $unread > 0 ? '(' . ($unread > 99 ? '99+' : (string)$unrea
 $unreadMessages = $currentUser ? (int)(Database::instance()->one('SELECT COUNT(*) AS count FROM direct_messages WHERE recipient_id = :id AND is_read = 0', ['id' => (int)$currentUser['id']])['count'] ?? 0) : 0;
 $messagesLabel = $unreadMessages > 0 ? '(' . ($unreadMessages > 99 ? '99+' : (string)$unreadMessages) . ') Direct Messages' : 'Direct Messages';
 $siteAlert = Database::instance()->one('SELECT id, message, updated_at FROM site_alerts WHERE is_active = 1 AND message <> :empty ORDER BY updated_at DESC, id DESC LIMIT 1', ['empty' => '']);
-$theme = (string)($currentUser['theme'] ?? 'classic');
-if (!in_array($theme, ['classic', 'night', 'forest', 'ruby', 'high_contrast'], true)) {
+$theme = (string)($currentUser['theme_choice'] ?? $currentUser['theme'] ?? 'classic');
+if (!array_key_exists($theme, Helpers::themes())) {
     $theme = 'classic';
 }
+$customThemeCss = $currentUser && $theme === 'custom' ? Helpers::customThemeCssForOutput((string)($currentUser['custom_theme_css'] ?? '')) : '';
 $bodyClasses = ['theme-' . $theme];
 if (!empty($adminLayout)) {
     $bodyClasses[] = 'admin-mode';
@@ -27,6 +28,9 @@ if (!empty($adminLayout)) {
     <meta name="csrf-token" content="<?= Helpers::h(Helpers::csrfToken()) ?>">
     <title><?= Helpers::h($title ?? $appName) ?> / <?= Helpers::h($appName) ?></title>
     <link rel="stylesheet" href="/css/twitkey.css">
+    <?php if ($customThemeCss !== ''): ?>
+        <style id="twitkey-custom-theme"><?= $customThemeCss ?></style>
+    <?php endif; ?>
 </head>
 <body class="<?= Helpers::h(implode(' ', $bodyClasses)) ?>">
 <div class="topbar">
