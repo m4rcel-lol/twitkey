@@ -42,6 +42,7 @@ if (!empty($adminLayout)) {
         <div class="topnav">
             <?php if ($currentUser): ?>
                 <a href="/">Home</a> |
+                <a href="/users">Users</a> |
                 <a href="/<?= Helpers::h($currentUser['username']) ?>">Profile</a> |
                 <a href="/replies">@Replies</a> |
                 <a href="/notifications" data-notifications-link data-count="<?= (int)$unread ?>"><?= Helpers::h($notificationsLabel) ?></a> |
@@ -53,6 +54,7 @@ if (!empty($adminLayout)) {
                 <a href="/help">Help</a> |
                 <a href="/logout">Sign out</a>
             <?php else: ?>
+                <a href="/users">Users</a> |
                 <a href="/login">Sign in</a> |
                 <a href="/register">Join now</a> |
                 <a href="/help">Help</a>
@@ -202,6 +204,7 @@ if (!empty($adminLayout)) {
 
             <section class="side-footer">
                 <a href="/public">Public Timeline</a> ·
+                <a href="/users">Users</a> ·
                 <a href="/search">Search</a> ·
                 <a href="/notes/pending">Community Notes</a> ·
                 <a href="/help">Help</a> ·
@@ -217,6 +220,7 @@ if (!empty($adminLayout)) {
     <div>
         <strong><?= Helpers::h($appName) ?></strong>
         <a href="/public">Public Timeline</a>
+        <a href="/users">Users</a>
         <a href="/help">Help</a>
         <a href="/privacy">Privacy Policy</a>
         <a href="/terms">Terms of Service</a>

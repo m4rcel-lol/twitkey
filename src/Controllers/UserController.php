@@ -378,12 +378,10 @@ final class UserController
 
         $width = imagesx($source);
         $height = imagesy($source);
-        $scale = min($maxWidth / max(1, $width), $maxHeight / max(1, $height), 1);
-        $newWidth = max(1, (int)floor($width * $scale));
-        $newHeight = max(1, (int)floor($height * $scale));
-        $image = imagecreatetruecolor($newWidth, $newHeight);
+        [$srcX, $srcY, $srcWidth, $srcHeight] = $this->resolveUploadCrop($field, $width, $height, $maxWidth / $maxHeight);
+        $image = imagecreatetruecolor($maxWidth, $maxHeight);
         imagefill($image, 0, 0, imagecolorallocate($image, 255, 255, 255));
-        imagecopyresampled($image, $source, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+        imagecopyresampled($image, $source, 0, 0, $srcX, $srcY, $maxWidth, $maxHeight, $srcWidth, $srcHeight);
 
         $filename = $field . '_' . hash('sha256', $userId . ':' . $field . ':' . microtime(true) . ':' . bin2hex(random_bytes(16))) . '.jpg';
         $path = Database::instance()->dataDir() . '/uploads/' . $filename;
@@ -395,5 +393,84 @@ final class UserController
         imagedestroy($source);
         imagedestroy($image);
         return $filename;
+    }
+
+    /**
+     * Resolve a browser-selected crop rectangle, falling back to a centered crop.
+     *
+     * @return array{0:int, 1:int, 2:int, 3:int}
+     */
+    private function resolveUploadCrop(string $field, int $width, int $height, float $targetAspect): array
+    {
+        $values = [];
+        foreach (['x', 'y', 'w', 'h'] as $key) {
+            $raw = $_POST[$field . '_crop_' . $key] ?? null;
+            $value = filter_var($raw, FILTER_VALIDATE_FLOAT);
+            if ($value === false) {
+                return $this->centerUploadCrop($width, $height, $targetAspect);
+            }
+            $values[$key] = (float)$value;
+        }
+
+        if ($values['x'] < 0 || $values['y'] < 0 || $values['w'] <= 0 || $values['h'] <= 0
+            || $values['x'] > 1 || $values['y'] > 1 || $values['w'] > 1 || $values['h'] > 1
+            || $values['x'] + $values['w'] > 1.01 || $values['y'] + $values['h'] > 1.01) {
+            return $this->centerUploadCrop($width, $height, $targetAspect);
+        }
+
+        $srcX = max(0, min($width - 1, (int)round($values['x'] * $width)));
+        $srcY = max(0, min($height - 1, (int)round($values['y'] * $height)));
+        $srcWidth = max(1, min($width - $srcX, (int)round($values['w'] * $width)));
+        $srcHeight = max(1, min($height - $srcY, (int)round($values['h'] * $height)));
+
+        return $this->normalizeUploadCropAspect($srcX, $srcY, $srcWidth, $srcHeight, $width, $height, $targetAspect);
+    }
+
+    /**
+     * Return a centered source rectangle with the target aspect ratio.
+     *
+     * @return array{0:int, 1:int, 2:int, 3:int}
+     */
+    private function centerUploadCrop(int $width, int $height, float $targetAspect): array
+    {
+        $srcWidth = $width;
+        $srcHeight = max(1, (int)round($width / $targetAspect));
+        if ($srcHeight > $height) {
+            $srcHeight = $height;
+            $srcWidth = max(1, (int)round($height * $targetAspect));
+        }
+        $srcWidth = max(1, min($srcWidth, $width));
+        $srcHeight = max(1, min($srcHeight, $height));
+        $srcX = max(0, (int)floor(($width - $srcWidth) / 2));
+        $srcY = max(0, (int)floor(($height - $srcHeight) / 2));
+        return [$srcX, $srcY, $srcWidth, $srcHeight];
+    }
+
+    /**
+     * Clamp a crop rectangle to the required output aspect ratio.
+     *
+     * @return array{0:int, 1:int, 2:int, 3:int}
+     */
+    private function normalizeUploadCropAspect(int $srcX, int $srcY, int $srcWidth, int $srcHeight, int $imageWidth, int $imageHeight, float $targetAspect): array
+    {
+        $srcWidth = max(1, min($srcWidth, $imageWidth - $srcX));
+        $srcHeight = max(1, min($srcHeight, $imageHeight - $srcY));
+        $aspect = $srcWidth / max(1, $srcHeight);
+
+        if ($aspect > $targetAspect) {
+            $newWidth = max(1, (int)round($srcHeight * $targetAspect));
+            $srcX += max(0, (int)floor(($srcWidth - $newWidth) / 2));
+            $srcWidth = $newWidth;
+        } elseif ($aspect < $targetAspect) {
+            $newHeight = max(1, (int)round($srcWidth / $targetAspect));
+            $srcY += max(0, (int)floor(($srcHeight - $newHeight) / 2));
+            $srcHeight = $newHeight;
+        }
+
+        $srcWidth = max(1, min($srcWidth, $imageWidth));
+        $srcHeight = max(1, min($srcHeight, $imageHeight));
+        $srcX = max(0, min($srcX, $imageWidth - $srcWidth));
+        $srcY = max(0, min($srcY, $imageHeight - $srcHeight));
+        return [$srcX, $srcY, $srcWidth, $srcHeight];
     }
 }

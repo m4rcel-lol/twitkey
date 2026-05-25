@@ -244,6 +244,47 @@ final class User
     }
 
     /**
+     * Return featured active users for the public directory.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function featured(int $limit = 6): array
+    {
+        $stmt = Database::instance()->pdo()->prepare(
+            'SELECT * FROM users
+             WHERE is_suspended = 0
+               AND is_deleted = 0
+               AND is_system = 0
+             ORDER BY is_admin DESC, is_verified DESC, follower_count DESC, tweet_count DESC, created_at ASC
+             LIMIT :limit'
+        );
+        $stmt->bindValue(':limit', max(1, min(24, $limit)), \PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Return paginated active users for the public directory.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function directory(int $page, int $perPage = 30): array
+    {
+        $stmt = Database::instance()->pdo()->prepare(
+            'SELECT * FROM users
+             WHERE is_suspended = 0
+               AND is_deleted = 0
+               AND is_system = 0
+             ORDER BY created_at DESC, id DESC
+             LIMIT :limit OFFSET :offset'
+        );
+        $stmt->bindValue(':limit', max(1, min(100, $perPage)), \PDO::PARAM_INT);
+        $stmt->bindValue(':offset', Helpers::offset($page, $perPage), \PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    /**
      * Return users following a user.
      *
      * @return array<int, array<string, mixed>>

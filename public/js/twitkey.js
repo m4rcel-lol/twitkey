@@ -581,6 +581,154 @@
 
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
+    const themeSelect = document.querySelector('[data-theme-select]');
+    const customThemePanel = document.querySelector('[data-custom-theme-panel]');
+    if (themeSelect && customThemePanel) {
+        const syncCustomThemePanel = () => {
+            customThemePanel.hidden = themeSelect.value !== 'custom';
+        };
+        themeSelect.addEventListener('change', syncCustomThemePanel);
+        syncCustomThemePanel();
+    }
+
+    document.querySelectorAll('[data-crop-input]').forEach((input) => {
+        const name = input.dataset.cropInput || '';
+        const cropper = document.querySelector(`[data-cropper="${name}"]`);
+        const stage = cropper?.querySelector('[data-crop-stage]');
+        const image = cropper?.querySelector('[data-crop-image]');
+        const box = cropper?.querySelector('[data-crop-box]');
+        const aspect = Number(cropper?.dataset.cropAspect || '1') || 1;
+        let crop = null;
+        let drag = null;
+        let objectUrl = '';
+
+        if (!cropper || !stage || !image || !box) {
+            return;
+        }
+
+        const setField = (key, value) => {
+            const field = document.querySelector(`[data-crop-field="${name}:${key}"]`);
+            if (field) {
+                field.value = Number.isFinite(value) ? value.toFixed(6) : '';
+            }
+        };
+
+        const imageRectInStage = () => {
+            const stageRect = stage.getBoundingClientRect();
+            const imageRect = image.getBoundingClientRect();
+            return {
+                left: imageRect.left - stageRect.left,
+                top: imageRect.top - stageRect.top,
+                width: imageRect.width,
+                height: imageRect.height,
+            };
+        };
+
+        const writeCropFields = () => {
+            if (!crop) {
+                ['x', 'y', 'w', 'h'].forEach((key) => setField(key, NaN));
+                return;
+            }
+            const rect = imageRectInStage();
+            setField('x', clamp((crop.x - rect.left) / Math.max(1, rect.width), 0, 1));
+            setField('y', clamp((crop.y - rect.top) / Math.max(1, rect.height), 0, 1));
+            setField('w', clamp(crop.w / Math.max(1, rect.width), 0, 1));
+            setField('h', clamp(crop.h / Math.max(1, rect.height), 0, 1));
+        };
+
+        const renderCrop = () => {
+            if (!crop) {
+                return;
+            }
+            box.style.left = `${crop.x}px`;
+            box.style.top = `${crop.y}px`;
+            box.style.width = `${crop.w}px`;
+            box.style.height = `${crop.h}px`;
+            writeCropFields();
+        };
+
+        const createInitialCrop = () => {
+            const rect = imageRectInStage();
+            if (rect.width <= 0 || rect.height <= 0) {
+                return;
+            }
+            let width = rect.width;
+            let height = width / aspect;
+            if (height > rect.height) {
+                height = rect.height;
+                width = height * aspect;
+            }
+            crop = {
+                x: rect.left + ((rect.width - width) / 2),
+                y: rect.top + ((rect.height - height) / 2),
+                w: width,
+                h: height,
+            };
+            renderCrop();
+        };
+
+        input.addEventListener('change', () => {
+            const file = input.files?.[0] || null;
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+                objectUrl = '';
+            }
+            crop = null;
+            writeCropFields();
+            if (!file || !file.type.startsWith('image/')) {
+                cropper.hidden = true;
+                image.removeAttribute('src');
+                return;
+            }
+            objectUrl = URL.createObjectURL(file);
+            image.onload = () => {
+                cropper.hidden = false;
+                requestAnimationFrame(createInitialCrop);
+            };
+            image.src = objectUrl;
+        });
+
+        box.addEventListener('pointerdown', (event) => {
+            if (!crop) {
+                return;
+            }
+            event.preventDefault();
+            if (box.setPointerCapture) {
+                box.setPointerCapture(event.pointerId);
+            }
+            drag = {
+                id: event.pointerId,
+                startX: event.clientX,
+                startY: event.clientY,
+                cropX: crop.x,
+                cropY: crop.y,
+            };
+        });
+
+        box.addEventListener('pointermove', (event) => {
+            if (!drag || !crop || drag.id !== event.pointerId) {
+                return;
+            }
+            const rect = imageRectInStage();
+            crop.x = clamp(drag.cropX + event.clientX - drag.startX, rect.left, rect.left + rect.width - crop.w);
+            crop.y = clamp(drag.cropY + event.clientY - drag.startY, rect.top, rect.top + rect.height - crop.h);
+            renderCrop();
+        });
+
+        const stopDrag = (event) => {
+            if (drag && drag.id === event.pointerId) {
+                drag = null;
+            }
+        };
+        box.addEventListener('pointerup', stopDrag);
+        box.addEventListener('pointercancel', stopDrag);
+        window.addEventListener('resize', () => {
+            if (!cropper.hidden && image.getAttribute('src')) {
+                createInitialCrop();
+            }
+        });
+    });
+
     const setLocation = (form, lat, lng, label) => {
         const latitude = clamp(Number(lat), -90, 90);
         const longitude = clamp(Number(lng), -180, 180);

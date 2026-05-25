@@ -58,6 +58,20 @@ final class HomeController
     }
 
     /**
+     * Show the public user directory.
+     */
+    public function users(): void
+    {
+        $page = Helpers::page();
+        Helpers::render('home/users', [
+            'title' => 'Users',
+            'featuredUsers' => User::featured(6),
+            'users' => User::directory($page, 30),
+            'page' => $page,
+        ]);
+    }
+
+    /**
      * Show the help center.
      */
     public function help(): void

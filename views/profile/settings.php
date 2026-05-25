@@ -20,11 +20,35 @@
         <input type="url" name="website" maxlength="120" value="<?= Helpers::h($user['website']) ?>">
     </label>
     <label>Avatar
-        <input type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp">
+        <input type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp" data-crop-input="avatar">
     </label>
+    <input type="hidden" name="avatar_crop_x" data-crop-field="avatar:x">
+    <input type="hidden" name="avatar_crop_y" data-crop-field="avatar:y">
+    <input type="hidden" name="avatar_crop_w" data-crop-field="avatar:w">
+    <input type="hidden" name="avatar_crop_h" data-crop-field="avatar:h">
+    <div class="image-cropper" data-cropper="avatar" data-crop-aspect="1" hidden>
+        <div class="crop-title">Crop profile picture</div>
+        <div class="crop-stage" data-crop-stage>
+            <img src="" data-crop-image alt="">
+            <span class="crop-box" data-crop-box></span>
+        </div>
+        <div class="crop-hint">Drag the box to choose how your profile picture should be framed.</div>
+    </div>
     <label>Profile banner
-        <input type="file" name="banner" accept="image/jpeg,image/png,image/gif,image/webp">
+        <input type="file" name="banner" accept="image/jpeg,image/png,image/gif,image/webp" data-crop-input="banner">
     </label>
+    <input type="hidden" name="banner_crop_x" data-crop-field="banner:x">
+    <input type="hidden" name="banner_crop_y" data-crop-field="banner:y">
+    <input type="hidden" name="banner_crop_w" data-crop-field="banner:w">
+    <input type="hidden" name="banner_crop_h" data-crop-field="banner:h">
+    <div class="image-cropper" data-cropper="banner" data-crop-aspect="3" hidden>
+        <div class="crop-title">Crop profile banner</div>
+        <div class="crop-stage" data-crop-stage>
+            <img src="" data-crop-image alt="">
+            <span class="crop-box" data-crop-box></span>
+        </div>
+        <div class="crop-hint">Drag the wide box to position the banner exactly how it should appear.</div>
+    </div>
     <div class="settings-section">
         <h2>Privacy</h2>
         <label class="checkbox-label">
@@ -55,17 +79,19 @@
     <div class="settings-section">
         <h2>Theme</h2>
         <label>Site theme
-            <select name="theme">
-                <?php $selectedTheme = (string)($user['theme_choice'] ?? $user['theme'] ?? 'classic'); ?>
+            <?php $selectedTheme = (string)($user['theme_choice'] ?? $user['theme'] ?? 'classic'); ?>
+            <select name="theme" data-theme-select>
                 <?php foreach (Helpers::themes() as $themeValue => $themeLabel): ?>
                     <option value="<?= Helpers::h($themeValue) ?>"<?= $selectedTheme === $themeValue ? ' selected' : '' ?>><?= Helpers::h($themeLabel) ?></option>
                 <?php endforeach; ?>
             </select>
         </label>
-        <label>Custom theme CSS
-            <textarea name="custom_theme_css" class="custom-theme-editor" maxlength="20000" spellcheck="false"><?= Helpers::h(((string)($user['custom_theme_css'] ?? '')) !== '' ? (string)$user['custom_theme_css'] : Helpers::customThemeTemplate()) ?></textarea>
-        </label>
-        <div class="tool-hint">Use the Custom CSS theme to apply this stylesheet. Base stylesheet: <a href="/css/twitkey.css" target="_blank" rel="noopener">/css/twitkey.css</a>.</div>
+        <div class="custom-theme-panel" data-custom-theme-panel<?= $selectedTheme === 'custom' ? '' : ' hidden' ?>>
+            <label>Custom theme CSS
+                <textarea name="custom_theme_css" class="custom-theme-editor" maxlength="20000" spellcheck="false"><?= Helpers::h(((string)($user['custom_theme_css'] ?? '')) !== '' ? (string)$user['custom_theme_css'] : Helpers::customThemeTemplate()) ?></textarea>
+            </label>
+            <div class="tool-hint">Use the Custom CSS theme to apply this stylesheet. Base stylesheet: <a href="/css/twitkey.css" target="_blank" rel="noopener">/css/twitkey.css</a>.</div>
+        </div>
     </div>
     <button type="submit" class="primary-button">Save settings</button>
 </form>

@@ -1615,6 +1615,10 @@ button,
     animation: oldFadeIn .18s ease-out;
 }
 
+.suspension-card {
+    line-height: 20px;
+}
+
 .suspension-stamp {
     display: inline-block;
     background: #9b1c1c;
@@ -1647,25 +1651,32 @@ button,
 }
 
 .suspension-card dl {
-    margin: 0 0 12px;
+    margin: 0 0 14px;
 }
 
 .suspension-card dt {
     color: #777;
     font-size: 11px;
     font-weight: bold;
+    margin-top: 10px;
     text-transform: uppercase;
 }
 
+.suspension-card dt:first-child {
+    margin-top: 0;
+}
+
 .suspension-card dd {
-    margin: 0 0 9px;
+    line-height: 20px;
+    margin: 2px 0 12px;
 }
 
 .moderation-note,
 .appeal-note {
     border-top: 1px solid var(--border-main);
-    margin: 10px 0 0;
-    padding-top: 10px;
+    line-height: 20px;
+    margin: 12px 0 0;
+    padding-top: 12px;
 }
 
 .logout-button {
@@ -1733,6 +1744,70 @@ button,
     line-height: 16px;
     white-space: pre;
     tab-size: 4;
+}
+
+.custom-theme-panel {
+    margin-top: 6px;
+}
+
+.custom-theme-panel[hidden],
+.image-cropper[hidden] {
+    display: none;
+}
+
+.image-cropper {
+    background: #f7fbfe;
+    border: 1px solid var(--border-main);
+    margin: -2px 0 12px;
+    padding: 8px;
+}
+
+.crop-title {
+    color: #333;
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+
+.crop-stage {
+    position: relative;
+    width: 100%;
+    min-height: 170px;
+    max-height: 360px;
+    background: #d9edf8;
+    border: 1px solid var(--border-input);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.crop-stage img {
+    display: block;
+    max-width: 100%;
+    max-height: 360px;
+    object-fit: contain;
+    user-select: none;
+}
+
+.crop-box {
+    position: absolute;
+    box-sizing: border-box;
+    border: 2px solid #fff;
+    outline: 1px solid #04538a;
+    box-shadow: 0 0 0 999px rgba(0, 0, 0, .32);
+    cursor: move;
+    touch-action: none;
+    background-image:
+        linear-gradient(to right, transparent 33%, rgba(255, 255, 255, .72) 33%, rgba(255, 255, 255, .72) calc(33% + 1px), transparent calc(33% + 1px), transparent 66%, rgba(255, 255, 255, .72) 66%, rgba(255, 255, 255, .72) calc(66% + 1px), transparent calc(66% + 1px)),
+        linear-gradient(to bottom, transparent 33%, rgba(255, 255, 255, .72) 33%, rgba(255, 255, 255, .72) calc(33% + 1px), transparent calc(33% + 1px), transparent 66%, rgba(255, 255, 255, .72) 66%, rgba(255, 255, 255, .72) calc(66% + 1px), transparent calc(66% + 1px));
+}
+
+.crop-hint {
+    color: #777;
+    font-size: 11px;
+    line-height: 16px;
+    margin-top: 6px;
 }
 
 .settings-section {
@@ -1896,6 +1971,78 @@ button,
 
 .user-results {
     border-top: 1px solid var(--border-main);
+}
+
+.users-directory h2 {
+    background: #e8f5fd;
+    border-bottom: 1px solid var(--border-main);
+    border-top: 1px solid var(--border-main);
+    color: #333;
+    font-size: 13px;
+    margin: 0;
+    padding: 7px 10px;
+}
+
+.featured-users {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border-bottom: 1px solid #e8e8e8;
+}
+
+.featured-user {
+    display: flex;
+    gap: 10px;
+    min-width: 0;
+    padding: 10px;
+    border-right: 1px solid #e8e8e8;
+    border-bottom: 1px solid #e8e8e8;
+    background: #fff;
+}
+
+.featured-user:nth-child(2n) {
+    border-right: none;
+}
+
+.featured-avatar-link {
+    flex: 0 0 auto;
+}
+
+.featured-avatar-frame,
+.featured-avatar {
+    width: 73px;
+    height: 73px;
+}
+
+.featured-avatar {
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+.featured-user-body,
+.directory-user-body {
+    min-width: 0;
+}
+
+.featured-user-body p,
+.directory-user-body p {
+    color: #555;
+    font-size: 12px;
+    line-height: 17px;
+    margin: 3px 0 5px;
+}
+
+.directory-user {
+    background: #fff;
+}
+
+.directory-stats {
+    color: #999;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 11px;
+    line-height: 15px;
 }
 
 .user-result,
@@ -2876,6 +3023,23 @@ button,
     .settings-form,
     .account-switcher-settings {
         padding: 8px;
+    }
+
+    .featured-users {
+        grid-template-columns: 1fr;
+    }
+
+    .featured-user {
+        border-right: 0;
+    }
+
+    .crop-stage {
+        min-height: 140px;
+        max-height: 270px;
+    }
+
+    .crop-stage img {
+        max-height: 270px;
     }
 
     .account-switch-row {
