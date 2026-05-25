@@ -21,11 +21,12 @@ final class Auth
         }
         $id = (int)($_SESSION['user_id'] ?? 0);
         if ($id <= 0) {
-            return null;
+            return self::loginFromRememberCookie();
         }
         self::$cachedUser = User::find($id);
         if (self::$cachedUser === null) {
             unset($_SESSION['user_id']);
+            return self::loginFromRememberCookie();
         }
         return self::$cachedUser;
     }
@@ -82,10 +83,34 @@ final class Auth
     }
 
     /**
+     * Persist login in a secure long-lived cookie.
+     *
+     * @param array<string, mixed> $user
+     */
+    public static function remember(array $user): void
+    {
+        $selector = bin2hex(random_bytes(9));
+        $validator = bin2hex(random_bytes(32));
+        $expires = time() + (60 * 60 * 24 * 60);
+        Database::instance()->execute('DELETE FROM remember_tokens WHERE expires_at <= :now', ['now' => date('Y-m-d H:i:s')]);
+        Database::instance()->execute(
+            'INSERT INTO remember_tokens (user_id, selector, token_hash, expires_at) VALUES (:user_id, :selector, :token_hash, :expires_at)',
+            [
+                'user_id' => (int)$user['id'],
+                'selector' => $selector,
+                'token_hash' => hash('sha256', $validator),
+                'expires_at' => date('Y-m-d H:i:s', $expires),
+            ]
+        );
+        self::setRememberCookie($selector . ':' . $validator, $expires);
+    }
+
+    /**
      * Log out the current session.
      */
     public static function logout(): void
     {
+        self::forgetRememberCookie();
         $_SESSION = [];
         if (ini_get('session.use_cookies')) {
             $params = session_get_cookie_params();
@@ -246,5 +271,99 @@ final class Auth
             }
         }
         return array_slice($out, 0, 8);
+    }
+
+    /**
+     * Restore a session from a valid remember-me cookie.
+     *
+     * @return array<string, mixed>|null
+     */
+    private static function loginFromRememberCookie(): ?array
+    {
+        $cookie = (string)($_COOKIE['twitkey_remember'] ?? '');
+        if ($cookie === '' || !str_contains($cookie, ':')) {
+            return null;
+        }
+        [$selector, $validator] = explode(':', $cookie, 2);
+        if (!preg_match('/^[a-f0-9]{18}$/', $selector) || !preg_match('/^[a-f0-9]{64}$/', $validator)) {
+            self::forgetRememberCookie();
+            return null;
+        }
+        $row = Database::instance()->one(
+            'SELECT rt.*, u.*
+             FROM remember_tokens rt
+             JOIN users u ON u.id = rt.user_id
+             WHERE rt.selector = :selector
+             LIMIT 1',
+            ['selector' => $selector]
+        );
+        if (!$row || strtotime((string)$row['expires_at']) <= time() || !hash_equals((string)$row['token_hash'], hash('sha256', $validator))) {
+            Database::instance()->execute('DELETE FROM remember_tokens WHERE selector = :selector', ['selector' => $selector]);
+            self::forgetRememberCookie();
+            return null;
+        }
+        if ((int)($row['is_system'] ?? 0) === 1 || (int)($row['is_suspended'] ?? 0) === 1 || (int)($row['is_deleted'] ?? 0) === 1) {
+            self::forgetRememberCookie();
+            return null;
+        }
+
+        $user = User::find((int)$row['user_id']);
+        if (!$user) {
+            self::forgetRememberCookie();
+            return null;
+        }
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = (int)$user['id'];
+        $_SESSION['account_ids'] = self::normalizedAccountIds([(int)$user['id'], ...self::accountIds()]);
+        self::$cachedUser = $user;
+
+        $newValidator = bin2hex(random_bytes(32));
+        $expires = time() + (60 * 60 * 24 * 60);
+        Database::instance()->execute(
+            'UPDATE remember_tokens SET token_hash = :token_hash, expires_at = :expires_at, last_used_at = :last_used_at WHERE selector = :selector',
+            [
+                'token_hash' => hash('sha256', $newValidator),
+                'expires_at' => date('Y-m-d H:i:s', $expires),
+                'last_used_at' => date('Y-m-d H:i:s'),
+                'selector' => $selector,
+            ]
+        );
+        self::setRememberCookie($selector . ':' . $newValidator, $expires);
+        return $user;
+    }
+
+    /**
+     * Clear the active remember-me token, if present.
+     */
+    private static function forgetRememberCookie(): void
+    {
+        $cookie = (string)($_COOKIE['twitkey_remember'] ?? '');
+        if (str_contains($cookie, ':')) {
+            [$selector] = explode(':', $cookie, 2);
+            Database::instance()->execute('DELETE FROM remember_tokens WHERE selector = :selector', ['selector' => $selector]);
+        }
+        self::setRememberCookie('', time() - 3600);
+    }
+
+    /**
+     * Write the remember-me cookie with security attributes.
+     */
+    private static function setRememberCookie(string $value, int $expires): void
+    {
+        $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+        setcookie('twitkey_remember', $value, [
+            'expires' => $expires,
+            'path' => '/',
+            'domain' => '',
+            'secure' => $secure,
+            'httponly' => true,
+            'samesite' => 'Strict',
+        ]);
+        if ($expires <= time()) {
+            unset($_COOKIE['twitkey_remember']);
+        } else {
+            $_COOKIE['twitkey_remember'] = $value;
+        }
     }
 }

@@ -47,6 +47,19 @@ CREATE TABLE IF NOT EXISTS two_factor_passkeys (
     last_used_at  TEXT DEFAULT NULL
 );
 
+CREATE TABLE IF NOT EXISTS remember_tokens (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    selector     TEXT NOT NULL UNIQUE,
+    token_hash   TEXT NOT NULL,
+    expires_at   VARCHAR(32) NOT NULL,
+    created_at   TEXT DEFAULT (datetime('now')),
+    last_used_at TEXT DEFAULT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_remember_tokens_user_id ON remember_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_remember_tokens_expires_at ON remember_tokens(expires_at);
+
 -- TWEETS
 CREATE TABLE IF NOT EXISTS tweets (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,

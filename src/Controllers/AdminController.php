@@ -9,6 +9,7 @@ use Twitkey\Core\Helpers;
 use Twitkey\Core\Session;
 use Twitkey\Models\CommunityNote;
 use Twitkey\Models\Tweet;
+use Twitkey\Models\TwoFactor;
 use Twitkey\Models\User;
 
 final class AdminController
@@ -18,7 +19,7 @@ final class AdminController
      */
     public function dashboard(): void
     {
-        Auth::requireAdmin();
+        $admin = $this->requireAdminSecurity(false);
         $db = Database::instance();
         $todaySql = $db->isMysql() ? 'DATE(created_at) = CURRENT_DATE' : "date(created_at) = date('now')";
         Helpers::render('admin/dashboard', [
@@ -33,7 +34,8 @@ final class AdminController
             'logs' => $db->all('SELECT l.*, u.username FROM admin_log l JOIN users u ON u.id = l.admin_id ORDER BY l.created_at DESC LIMIT 10'),
             'siteAlert' => $db->one('SELECT * FROM site_alerts ORDER BY updated_at DESC, id DESC LIMIT 1'),
             'maintenanceMode' => Helpers::maintenanceModeEnabled(),
-            'isOwner' => User::isOwnerRow(Auth::user()),
+            'isOwner' => User::isOwnerRow($admin),
+            'adminSecurityFresh' => $this->adminSecurityFresh(),
             'wideLayout' => true,
             'adminLayout' => true,
         ]);
@@ -45,7 +47,7 @@ final class AdminController
     public function siteAlert(): void
     {
         Helpers::verifyCsrf();
-        $admin = Auth::requireAdmin();
+        $admin = $this->requireAdminSecurity(true);
         $message = Helpers::mbLimit(trim((string)($_POST['message'] ?? '')), 240);
         $active = isset($_POST['is_active']) && $message !== '' ? 1 : 0;
         Database::instance()->execute('UPDATE site_alerts SET is_active = 0');
@@ -64,7 +66,7 @@ final class AdminController
     public function maintenance(): void
     {
         Helpers::verifyCsrf();
-        $admin = Auth::requireAdmin();
+        $admin = $this->requireAdminSecurity(true);
         if (!User::isOwnerRow($admin)) {
             http_response_code(403);
             Session::flash('error', 'Only the Twitkey owner can change maintenance mode.');
@@ -83,8 +85,8 @@ final class AdminController
      */
     public function users(): void
     {
-        Auth::requireAdmin();
-        Helpers::render('admin/users', ['title' => 'Manage Users', 'users' => User::adminList(Helpers::page()), 'page' => Helpers::page(), 'wideLayout' => true, 'adminLayout' => true]);
+        $this->requireAdminSecurity(false);
+        Helpers::render('admin/users', ['title' => 'Manage Users', 'users' => User::adminList(Helpers::page()), 'page' => Helpers::page(), 'adminSecurityFresh' => $this->adminSecurityFresh(), 'wideLayout' => true, 'adminLayout' => true]);
     }
 
     /**
@@ -93,7 +95,7 @@ final class AdminController
     public function userAction(string $id): void
     {
         Helpers::verifyCsrf();
-        $admin = Auth::requireAdmin();
+        $admin = $this->requireAdminSecurity(true);
         $userId = (int)$id;
         $action = (string)($_POST['action'] ?? '');
         try {
@@ -127,8 +129,8 @@ final class AdminController
      */
     public function tweets(): void
     {
-        Auth::requireAdmin();
-        Helpers::render('admin/tweets', ['title' => 'Manage Tweets', 'tweets' => Tweet::adminList(Helpers::page()), 'page' => Helpers::page(), 'wideLayout' => true, 'adminLayout' => true]);
+        $this->requireAdminSecurity(false);
+        Helpers::render('admin/tweets', ['title' => 'Manage Tweets', 'tweets' => Tweet::adminList(Helpers::page()), 'page' => Helpers::page(), 'adminSecurityFresh' => $this->adminSecurityFresh(), 'wideLayout' => true, 'adminLayout' => true]);
     }
 
     /**
@@ -137,7 +139,7 @@ final class AdminController
     public function tweetAction(string $id): void
     {
         Helpers::verifyCsrf();
-        $admin = Auth::requireAdmin();
+        $admin = $this->requireAdminSecurity(true);
         $tweetId = (int)$id;
         $action = (string)($_POST['action'] ?? '');
         try {
@@ -164,8 +166,8 @@ final class AdminController
      */
     public function notes(): void
     {
-        Auth::requireAdmin();
-        Helpers::render('admin/notes', ['title' => 'Community Notes', 'notes' => CommunityNote::adminList(Helpers::page()), 'page' => Helpers::page(), 'wideLayout' => true, 'adminLayout' => true]);
+        $this->requireAdminSecurity(false);
+        Helpers::render('admin/notes', ['title' => 'Community Notes', 'notes' => CommunityNote::adminList(Helpers::page()), 'page' => Helpers::page(), 'adminSecurityFresh' => $this->adminSecurityFresh(), 'wideLayout' => true, 'adminLayout' => true]);
     }
 
     /**
@@ -174,7 +176,7 @@ final class AdminController
     public function noteAction(string $id): void
     {
         Helpers::verifyCsrf();
-        $admin = Auth::requireAdmin();
+        $admin = $this->requireAdminSecurity(true);
         $noteId = (int)$id;
         $action = (string)($_POST['action'] ?? '');
         try {
@@ -193,6 +195,87 @@ final class AdminController
             Session::flash('error', $e->getMessage());
         }
         Helpers::redirect('/admin/notes');
+    }
+
+    /**
+     * Show the fresh 2FA challenge required before privileged admin actions.
+     */
+    public function verifyForm(): void
+    {
+        $admin = Auth::requireAdmin();
+        if (!TwoFactor::isEnabled($admin)) {
+            Session::flash('error', 'Admins must enable Google Authenticator or a passkey before using admin tools.');
+            Helpers::redirect('/settings');
+        }
+        if ($this->adminSecurityFresh()) {
+            Helpers::redirect('/admin');
+        }
+        Helpers::render('admin/verify', [
+            'title' => 'Confirm Admin 2FA',
+            'admin' => $admin,
+            'passkeyCount' => TwoFactor::passkeyCount((int)$admin['id']),
+            'wideLayout' => true,
+            'adminLayout' => true,
+        ]);
+    }
+
+    /**
+     * Verify an administrator's authenticator code for the current admin session.
+     */
+    public function verifyTotp(): void
+    {
+        Helpers::verifyCsrf();
+        $admin = Auth::requireAdmin();
+        if (!TwoFactor::isEnabled($admin)) {
+            Session::flash('error', 'Set up 2FA before using admin tools.');
+            Helpers::redirect('/settings');
+        }
+        if ((int)($admin['totp_enabled'] ?? 0) !== 1 || !TwoFactor::verifyTotp((string)($admin['totp_secret'] ?? ''), (string)($_POST['code'] ?? ''))) {
+            Session::flash('error', 'Authenticator code is invalid.');
+            Helpers::redirect('/admin/verify');
+        }
+        $_SESSION['admin_2fa_verified_at'] = time();
+        Session::flash('success', 'Admin actions are unlocked for this session window.');
+        Helpers::redirect('/admin');
+    }
+
+    /**
+     * Return passkey request options for admin action confirmation.
+     */
+    public function passkeyVerifyOptions(): void
+    {
+        $admin = Auth::requireAdmin();
+        if (!TwoFactor::isEnabled($admin)) {
+            Helpers::json(['ok' => false, 'error' => 'Set up 2FA before using admin tools.'], 403);
+        }
+        try {
+            Helpers::json(['ok' => true, 'options' => TwoFactor::passkeyRequestOptions((int)$admin['id'])]);
+        } catch (\Throwable $e) {
+            Helpers::json(['ok' => false, 'error' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
+     * Verify a passkey assertion and unlock privileged admin actions.
+     */
+    public function verifyPasskey(): void
+    {
+        Helpers::verifyCsrf();
+        $admin = Auth::requireAdmin();
+        if (!TwoFactor::isEnabled($admin)) {
+            Helpers::json(['ok' => false, 'error' => 'Set up 2FA before using admin tools.'], 403);
+        }
+        $payload = json_decode((string)file_get_contents('php://input'), true);
+        if (!is_array($payload)) {
+            Helpers::json(['ok' => false, 'error' => 'Invalid passkey response.'], 400);
+        }
+        try {
+            TwoFactor::verifyPasskeyAssertion((int)$admin['id'], $payload);
+            $_SESSION['admin_2fa_verified_at'] = time();
+            Helpers::json(['ok' => true, 'redirect' => '/admin']);
+        } catch (\Throwable $e) {
+            Helpers::json(['ok' => false, 'error' => $e->getMessage()], 400);
+        }
     }
 
     /**
@@ -222,6 +305,34 @@ final class AdminController
         file_put_contents($flag, date(DATE_ATOM));
         Session::flash('success', '@' . $user['username'] . ' is now an admin.');
         Helpers::redirect('/' . rawurlencode((string)$user['username']));
+    }
+
+    /**
+     * Require an administrator account with configured 2FA.
+     *
+     * @return array<string, mixed>
+     */
+    private function requireAdminSecurity(bool $requireFreshVerification): array
+    {
+        $admin = Auth::requireAdmin();
+        if (!TwoFactor::isEnabled($admin)) {
+            Session::flash('error', 'Admins must set up Google Authenticator or a passkey before using admin tools.');
+            Helpers::redirect('/settings');
+        }
+        if ($requireFreshVerification && !$this->adminSecurityFresh()) {
+            Session::flash('error', 'Confirm 2FA before taking an admin action.');
+            Helpers::redirect('/admin/verify');
+        }
+        return $admin;
+    }
+
+    /**
+     * True when the current admin recently completed the admin 2FA challenge.
+     */
+    private function adminSecurityFresh(): bool
+    {
+        $verifiedAt = (int)($_SESSION['admin_2fa_verified_at'] ?? 0);
+        return $verifiedAt > 0 && $verifiedAt >= time() - 600;
     }
 
     /**

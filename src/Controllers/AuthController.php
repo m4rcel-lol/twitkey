@@ -27,6 +27,7 @@ final class AuthController
         Helpers::verifyCsrf();
         $login = trim((string)($_POST['login'] ?? ''));
         $password = (string)($_POST['password'] ?? '');
+        $remember = isset($_POST['remember_me']);
         $user = $login !== '' && $password !== '' ? Auth::validateCredentials($login, $password) : null;
         if (!$user) {
             Session::flash('error', 'Invalid username/email or password.');
@@ -35,10 +36,41 @@ final class AuthController
         if (TwoFactor::isEnabled($user)) {
             $_SESSION['2fa_user_id'] = (int)$user['id'];
             $_SESSION['2fa_started_at'] = time();
+            $_SESSION['2fa_remember_me'] = $remember ? 1 : 0;
             Helpers::redirect('/login/2fa');
         }
         Auth::loginAs($user, true);
+        if ($remember) {
+            Auth::remember($user);
+        }
         Helpers::redirect('/');
+    }
+
+    /**
+     * Return passkey request options for passwordless login.
+     */
+    public function passwordlessPasskeyOptions(): void
+    {
+        Helpers::json(['ok' => true, 'options' => TwoFactor::passwordlessPasskeyRequestOptions()]);
+    }
+
+    /**
+     * Complete login with a discoverable passkey.
+     */
+    public function verifyPasswordlessPasskey(): void
+    {
+        Helpers::verifyCsrf();
+        $payload = json_decode((string)file_get_contents('php://input'), true);
+        if (!is_array($payload)) {
+            Helpers::json(['ok' => false, 'error' => 'Invalid passkey response.'], 400);
+        }
+        try {
+            $user = TwoFactor::verifyPasswordlessPasskeyAssertion($payload);
+            Auth::loginAs($user, true);
+            Helpers::json(['ok' => true, 'redirect' => '/']);
+        } catch (\Throwable $e) {
+            Helpers::json(['ok' => false, 'error' => $e->getMessage()], 400);
+        }
     }
 
     /**
@@ -229,7 +261,7 @@ final class AuthController
         $startedAt = (int)($_SESSION['2fa_started_at'] ?? 0);
         $user = $userId > 0 && time() - $startedAt <= 600 ? User::find($userId) : null;
         if (!$user || !TwoFactor::isEnabled($user)) {
-            unset($_SESSION['2fa_user_id'], $_SESSION['2fa_started_at'], $_SESSION['passkey_login_challenge']);
+            unset($_SESSION['2fa_user_id'], $_SESSION['2fa_started_at'], $_SESSION['2fa_remember_me'], $_SESSION['passkey_login_challenge']);
             Helpers::redirect('/login');
         }
         return $user;
@@ -242,8 +274,12 @@ final class AuthController
      */
     private function completeTwoFactorLogin(array $user, bool $json = false): void
     {
-        unset($_SESSION['2fa_user_id'], $_SESSION['2fa_started_at'], $_SESSION['passkey_login_challenge']);
+        $remember = (int)($_SESSION['2fa_remember_me'] ?? 0) === 1;
+        unset($_SESSION['2fa_user_id'], $_SESSION['2fa_started_at'], $_SESSION['2fa_remember_me'], $_SESSION['passkey_login_challenge']);
         Auth::loginAs($user, true);
+        if ($remember) {
+            Auth::remember($user);
+        }
         if ($json) {
             Helpers::json(['ok' => true, 'redirect' => '/']);
         }

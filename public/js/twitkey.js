@@ -64,16 +64,25 @@
         ...options,
         challenge: base64urlToBuffer(options.challenge),
         user: { ...options.user, id: base64urlToBuffer(options.user.id) },
-    });
-
-    const requestOptions = (options) => ({
-        ...options,
-        challenge: base64urlToBuffer(options.challenge),
-        allowCredentials: (options.allowCredentials || []).map((credential) => ({
+        excludeCredentials: (options.excludeCredentials || []).map((credential) => ({
             ...credential,
             id: base64urlToBuffer(credential.id),
         })),
     });
+
+    const requestOptions = (options) => {
+        const prepared = {
+            ...options,
+            challenge: base64urlToBuffer(options.challenge),
+        };
+        if (Array.isArray(options.allowCredentials)) {
+            prepared.allowCredentials = options.allowCredentials.map((credential) => ({
+                ...credential,
+                id: base64urlToBuffer(credential.id),
+            }));
+        }
+        return prepared;
+    };
 
     let audioContext = null;
     const playNotificationSound = () => {
@@ -924,9 +933,14 @@
             passkeyLogin.disabled = true;
             status.textContent = 'Waiting for your passkey...';
             try {
-                const data = await jsonFetch('/login/2fa/passkey/options');
-                const credential = await navigator.credentials.get({ publicKey: requestOptions(data.options) });
-                const result = await jsonFetch('/login/2fa/passkey/verify', {
+                const passwordless = passkeyLogin.dataset.passkeyLoginMode === 'passwordless';
+                const data = await jsonFetch(passwordless ? '/login/passkey/options' : '/login/2fa/passkey/options');
+                const getOptions = { publicKey: requestOptions(data.options) };
+                if (passwordless) {
+                    getOptions.mediation = 'optional';
+                }
+                const credential = await navigator.credentials.get(getOptions);
+                const result = await jsonFetch(passwordless ? '/login/passkey/verify' : '/login/2fa/passkey/verify', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(passkeyToPayload(credential)),
@@ -935,6 +949,32 @@
             } catch (error) {
                 status.textContent = error.message || 'Passkey verification failed.';
                 passkeyLogin.disabled = false;
+            }
+        });
+    }
+
+    const adminPasskeyVerify = document.querySelector('[data-admin-passkey-verify]');
+    if (adminPasskeyVerify) {
+        const status = document.querySelector('[data-admin-passkey-status]');
+        adminPasskeyVerify.addEventListener('click', async () => {
+            if (!window.PublicKeyCredential) {
+                status.textContent = 'This browser does not support passkeys.';
+                return;
+            }
+            adminPasskeyVerify.disabled = true;
+            status.textContent = 'Waiting for your passkey...';
+            try {
+                const data = await jsonFetch('/admin/verify/passkey/options');
+                const credential = await navigator.credentials.get({ publicKey: requestOptions(data.options) });
+                const result = await jsonFetch('/admin/verify/passkey', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(passkeyToPayload(credential)),
+                });
+                window.location.href = result.redirect || '/admin';
+            } catch (error) {
+                status.textContent = error.message || 'Passkey verification failed.';
+                adminPasskeyVerify.disabled = false;
             }
         });
     }

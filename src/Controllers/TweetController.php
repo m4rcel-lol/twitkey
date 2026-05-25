@@ -9,6 +9,7 @@ use Twitkey\Core\Helpers;
 use Twitkey\Core\Session;
 use Twitkey\Models\CommunityNote;
 use Twitkey\Models\Tweet;
+use Twitkey\Models\TwoFactor;
 
 final class TweetController
 {
@@ -46,7 +47,6 @@ final class TweetController
      */
     public function show(string $id): void
     {
-        CommunityNote::autoModerate();
         $tweet = Tweet::findWithUser((int)$id, true);
         if (!$tweet) {
             http_response_code(404);
@@ -178,6 +178,12 @@ final class TweetController
         Helpers::verifyCsrf();
         $user = Auth::requireLogin();
         try {
+            if (Auth::isAdmin()) {
+                $tweet = Tweet::findWithUser((int)$id, true);
+                if ($tweet && (int)$tweet['user_id'] !== (int)$user['id']) {
+                    $this->requireFreshAdminAction();
+                }
+            }
             Tweet::delete((int)$id, (int)$user['id'], Auth::isAdmin());
             if (Helpers::wantsJson()) {
                 Helpers::json(['ok' => true]);
@@ -193,7 +199,6 @@ final class TweetController
      */
     public function pendingNotes(): void
     {
-        CommunityNote::autoModerate();
         $user = Auth::requireLogin();
         if (!Auth::isAdmin() && !Helpers::eligibleForNotes($user)) {
             http_response_code(403);
@@ -215,6 +220,7 @@ final class TweetController
         Helpers::verifyCsrf();
         $user = Auth::requireActiveUser();
         if (Auth::isAdmin()) {
+            $this->requireFreshAdminAction();
             try {
                 $bot = \Twitkey\Models\User::communityNotesBot();
                 CommunityNote::addApproved((int)$id, (int)$bot['id'], (string)($_POST['body'] ?? ''), (int)$user['id']);
@@ -249,7 +255,7 @@ final class TweetController
                 CommunityNote::flag((int)$id, (int)$user['id'], (string)($_POST['reason'] ?? ''));
                 Session::flash('success', 'Note flagged for admin review.');
             } else {
-                if (!Helpers::eligibleForNotes($user)) {
+                if (!Auth::isAdmin() && !Helpers::eligibleForNotes($user)) {
                     throw new \RuntimeException('You are not eligible to vote on Community Notes yet.');
                 }
                 CommunityNote::vote((int)$id, (int)$user['id'], $vote);
@@ -508,5 +514,28 @@ final class TweetController
         }
         Session::flash('error', $message);
         Helpers::redirect($fallback);
+    }
+
+    /**
+     * Require a recent 2FA check before using admin-only tweet powers.
+     */
+    private function requireFreshAdminAction(): void
+    {
+        $admin = Auth::requireAdmin();
+        if (!TwoFactor::isEnabled($admin)) {
+            if (Helpers::wantsJson()) {
+                Helpers::json(['ok' => false, 'error' => 'Admins must set up 2FA before using admin tools.', 'redirect' => '/settings'], 403);
+            }
+            Session::flash('error', 'Admins must set up 2FA before using admin tools.');
+            Helpers::redirect('/settings');
+        }
+        $verifiedAt = (int)($_SESSION['admin_2fa_verified_at'] ?? 0);
+        if ($verifiedAt <= 0 || $verifiedAt < time() - 600) {
+            if (Helpers::wantsJson()) {
+                Helpers::json(['ok' => false, 'error' => 'Confirm 2FA before taking an admin action.', 'redirect' => '/admin/verify'], 403);
+            }
+            Session::flash('error', 'Confirm 2FA before taking an admin action.');
+            Helpers::redirect('/admin/verify');
+        }
     }
 }

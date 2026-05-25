@@ -17,6 +17,9 @@ final class CommunityNote
         if ($body === '' || Helpers::mbLength($body) > 500) {
             throw new \InvalidArgumentException('Community notes must be between 1 and 500 characters.');
         }
+        if (!Tweet::findWithUser($tweetId, true)) {
+            throw new \InvalidArgumentException('Tweet not found.');
+        }
         Database::instance()->execute(
             'INSERT INTO community_notes (tweet_id, author_id, body) VALUES (:tweet_id, :author_id, :body)',
             ['tweet_id' => $tweetId, 'author_id' => $authorId, 'body' => $body]
@@ -80,7 +83,7 @@ final class CommunityNote
              JOIN tweets t ON t.id = cn.tweet_id
              JOIN users a ON a.id = cn.author_id
              JOIN users u ON u.id = t.user_id
-             WHERE cn.status = :status
+             WHERE cn.status = :status AND t.is_deleted = 0 AND u.is_suspended = 0 AND u.is_deleted = 0
              ORDER BY cn.created_at ASC
              LIMIT 20 OFFSET :offset'
         );
@@ -100,40 +103,75 @@ final class CommunityNote
         }
         $db = Database::instance();
         $db->transaction(static function () use ($db, $noteId, $userId, $vote): void {
+            $note = $db->one('SELECT id, author_id, status FROM community_notes WHERE id = :id', ['id' => $noteId]);
+            if (!$note) {
+                throw new \InvalidArgumentException('Community Note not found.');
+            }
+            if ((string)$note['status'] !== 'pending') {
+                throw new \RuntimeException('Voting is closed for this Community Note.');
+            }
+            if ((int)$note['author_id'] === $userId) {
+                throw new \RuntimeException('You cannot vote on your own Community Note.');
+            }
             $existing = $db->one('SELECT vote FROM community_note_votes WHERE note_id = :note_id AND user_id = :user_id', ['note_id' => $noteId, 'user_id' => $userId]);
             if ($existing && $existing['vote'] === $vote) {
                 return;
             }
             if ($existing) {
-                $oldColumn = $existing['vote'] === 'helpful' ? 'helpful_votes' : 'unhelpful_votes';
-                $db->execute("UPDATE community_notes SET {$oldColumn} = CASE WHEN {$oldColumn} > 0 THEN {$oldColumn} - 1 ELSE 0 END WHERE id = :id", ['id' => $noteId]);
                 $db->execute('UPDATE community_note_votes SET vote = :vote WHERE note_id = :note_id AND user_id = :user_id', ['vote' => $vote, 'note_id' => $noteId, 'user_id' => $userId]);
             } else {
                 $db->execute('INSERT INTO community_note_votes (note_id, user_id, vote) VALUES (:note_id, :user_id, :vote)', ['note_id' => $noteId, 'user_id' => $userId, 'vote' => $vote]);
             }
-            $column = $vote === 'helpful' ? 'helpful_votes' : 'unhelpful_votes';
-            $db->execute("UPDATE community_notes SET {$column} = {$column} + 1 WHERE id = :id", ['id' => $noteId]);
         });
-        self::autoModerate();
+        self::recountVotes($noteId);
+        self::autoModerate($noteId);
     }
 
     /**
      * Apply automatic approval/rejection rules to pending notes.
      */
-    public static function autoModerate(): void
+    public static function autoModerate(?int $noteId = null): void
     {
         $db = Database::instance();
+        if ($noteId !== null) {
+            self::recountVotes($noteId);
+        }
+        $where = 'status = :pending';
+        $params = ['pending' => 'pending'];
+        if ($noteId !== null) {
+            $where .= ' AND id = :id';
+            $params['id'] = $noteId;
+        }
         $db->execute(
             'UPDATE community_notes
              SET status = :approved, reviewed_at = :reviewed_at
-             WHERE status = :pending AND helpful_votes >= 5 AND helpful_votes > (unhelpful_votes * 2)',
-            ['approved' => 'approved', 'reviewed_at' => date('Y-m-d H:i:s'), 'pending' => 'pending']
+             WHERE ' . $where . ' AND helpful_votes >= 5 AND (helpful_votes + unhelpful_votes) >= 5 AND helpful_votes > (unhelpful_votes * 2)',
+            ['approved' => 'approved', 'reviewed_at' => date('Y-m-d H:i:s')] + $params
         );
         $db->execute(
             'UPDATE community_notes
              SET status = :rejected, reviewed_at = :reviewed_at
-             WHERE status = :pending AND unhelpful_votes >= 10 AND unhelpful_votes > (helpful_votes * 2)',
-            ['rejected' => 'rejected', 'reviewed_at' => date('Y-m-d H:i:s'), 'pending' => 'pending']
+             WHERE ' . $where . ' AND unhelpful_votes >= 10 AND (helpful_votes + unhelpful_votes) >= 10 AND unhelpful_votes > (helpful_votes * 2)',
+            ['rejected' => 'rejected', 'reviewed_at' => date('Y-m-d H:i:s')] + $params
+        );
+    }
+
+    /**
+     * Rebuild denormalized vote counters from the vote table.
+     */
+    public static function recountVotes(int $noteId): void
+    {
+        $counts = Database::instance()->one(
+            "SELECT
+                SUM(CASE WHEN vote = 'helpful' THEN 1 ELSE 0 END) AS helpful,
+                SUM(CASE WHEN vote = 'unhelpful' THEN 1 ELSE 0 END) AS unhelpful
+             FROM community_note_votes
+             WHERE note_id = :note_id",
+            ['note_id' => $noteId]
+        ) ?? [];
+        Database::instance()->execute(
+            'UPDATE community_notes SET helpful_votes = :helpful, unhelpful_votes = :unhelpful WHERE id = :id',
+            ['helpful' => (int)($counts['helpful'] ?? 0), 'unhelpful' => (int)($counts['unhelpful'] ?? 0), 'id' => $noteId]
         );
     }
 

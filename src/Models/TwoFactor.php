@@ -150,11 +150,16 @@ final class TwoFactor
                 'displayName' => (string)$user['display_name'],
             ],
             'pubKeyCredParams' => [['type' => 'public-key', 'alg' => -7]],
+            'excludeCredentials' => array_map(
+                static fn(array $key): array => ['type' => 'public-key', 'id' => (string)$key['credential_id']],
+                self::passkeys((int)$user['id'])
+            ),
             'timeout' => 60000,
             'attestation' => 'none',
             'authenticatorSelection' => [
-                'residentKey' => 'preferred',
-                'userVerification' => 'preferred',
+                'residentKey' => 'required',
+                'requireResidentKey' => true,
+                'userVerification' => 'required',
             ],
         ];
     }
@@ -220,6 +225,23 @@ final class TwoFactor
     }
 
     /**
+     * Return request options for a passwordless passkey login.
+     *
+     * @return array<string, mixed>
+     */
+    public static function passwordlessPasskeyRequestOptions(): array
+    {
+        $challenge = self::base64url(random_bytes(32));
+        $_SESSION['passkey_passwordless_challenge'] = $challenge;
+        return [
+            'challenge' => $challenge,
+            'rpId' => self::rpId(),
+            'timeout' => 60000,
+            'userVerification' => 'required',
+        ];
+    }
+
+    /**
      * Verify a passkey assertion for the pending login user.
      *
      * @param array<string, mixed> $payload
@@ -234,13 +256,56 @@ final class TwoFactor
         if (!$key) {
             throw new \RuntimeException('Passkey is not registered for this account.');
         }
+        self::verifyAssertionWithKey($key, $payload, (string)($_SESSION['passkey_login_challenge'] ?? ''));
+        unset($_SESSION['passkey_login_challenge']);
+    }
 
+    /**
+     * Verify a discoverable passkey assertion and return its user.
+     *
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    public static function verifyPasswordlessPasskeyAssertion(array $payload): array
+    {
+        $credentialId = (string)($payload['id'] ?? '');
+        $key = Database::instance()->one(
+            'SELECT pk.*, u.is_system, u.is_suspended, u.is_deleted
+             FROM two_factor_passkeys pk
+             JOIN users u ON u.id = pk.user_id
+             WHERE pk.credential_id = :credential_id
+             LIMIT 1',
+            ['credential_id' => $credentialId]
+        );
+        if (!$key) {
+            throw new \RuntimeException('Passkey is not registered.');
+        }
+        if ((int)($key['is_system'] ?? 0) === 1 || (int)($key['is_suspended'] ?? 0) === 1 || (int)($key['is_deleted'] ?? 0) === 1) {
+            throw new \RuntimeException('That account cannot sign in.');
+        }
+        self::verifyAssertionWithKey($key, $payload, (string)($_SESSION['passkey_passwordless_challenge'] ?? ''));
+        unset($_SESSION['passkey_passwordless_challenge']);
+        $user = User::find((int)$key['user_id']);
+        if (!$user) {
+            throw new \RuntimeException('Passkey account no longer exists.');
+        }
+        return $user;
+    }
+
+    /**
+     * Verify an assertion against one stored passkey.
+     *
+     * @param array<string, mixed> $key
+     * @param array<string, mixed> $payload
+     */
+    private static function verifyAssertionWithKey(array $key, array $payload, string $challenge): void
+    {
         $clientDataJson = self::base64urlDecode((string)($payload['response']['clientDataJSON'] ?? ''));
         $clientData = json_decode($clientDataJson, true);
         if (!is_array($clientData)) {
             throw new \RuntimeException('Passkey client data is invalid.');
         }
-        self::verifyClientData($clientData, 'webauthn.get', (string)($_SESSION['passkey_login_challenge'] ?? ''));
+        self::verifyClientData($clientData, 'webauthn.get', $challenge);
 
         $authenticatorData = self::base64urlDecode((string)($payload['response']['authenticatorData'] ?? ''));
         self::verifyRpAndUserPresent($authenticatorData);
@@ -262,7 +327,6 @@ final class TwoFactor
              WHERE id = :id',
             ['sign_count' => $signCount, 'last_used_at' => date('Y-m-d H:i:s'), 'id' => (int)$key['id']]
         );
-        unset($_SESSION['passkey_login_challenge']);
     }
 
     /**

@@ -1466,6 +1466,15 @@ button,
     margin-bottom: 12px;
 }
 
+.auth-check {
+    justify-content: flex-start;
+    margin: 2px 0 10px;
+}
+
+.primary-passkey-login {
+    margin-top: 10px;
+}
+
 .static-page {
     padding: 14px 16px 20px;
 }
@@ -2143,18 +2152,18 @@ button,
 }
 
 .admin-mode {
-    background: #111b24;
+    background: #0b1420;
 }
 
 .admin-mode .topbar {
-    background: #07131d;
-    border-bottom: 1px solid #23445a;
+    background: #06101a;
+    border-bottom: 1px solid #1d3d55;
 }
 
 .admin-mode .topbar-inner {
     width: 100%;
     max-width: none;
-    padding: 0 20px;
+    padding: 0 22px;
 }
 
 .admin-mode .page-wrap-wide {
@@ -2165,33 +2174,32 @@ button,
     border: 0;
     border-radius: 0;
     box-shadow: none;
-    background: #fff;
-    overflow: hidden;
+    background: #edf4f8;
+    overflow: visible;
 }
 
 .admin-mode .main-col-wide {
+    display: grid;
+    grid-template-columns: 248px minmax(0, 1fr);
+    align-content: start;
     min-height: calc(100vh - 30px);
-}
-
-.admin-mode .content-header {
-    background: #10283a;
-    border-bottom: 1px solid #244a63;
-    color: #fff;
-    padding: 14px 16px;
-}
-
-.admin-mode .content-header h1 {
-    color: #fff;
+    background: #edf4f8;
 }
 
 .admin-mode .admin-nav {
-    background: #0d2030;
-    border-bottom: 1px solid #244a63;
+    grid-column: 1;
+    grid-row: 1 / span 100;
     display: flex;
-    padding: 0 16px;
+    flex-direction: column;
+    gap: 6px;
     position: sticky;
     top: 30px;
     z-index: 20;
+    min-height: calc(100vh - 30px);
+    padding: 20px 14px;
+    background: linear-gradient(180deg, #0c2233 0%, #08141f 100%);
+    border: 0;
+    box-shadow: inset -1px 0 0 #1b3f58;
 }
 
 .admin-nav a {
@@ -2200,53 +2208,144 @@ button,
 }
 
 .admin-mode .admin-nav a {
-    color: #d7edf8;
-    margin-right: 0;
-    padding: 12px 16px;
-    border-right: 1px solid #244a63;
+    display: block;
+    color: #c7dfec;
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: 4px;
 }
 
 .admin-nav a.active {
     color: #333;
 }
 
+.admin-mode .admin-nav a:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, .07);
+    text-decoration: none;
+}
+
 .admin-mode .admin-nav a.active {
     color: #fff;
     background: #1b7dba;
+    border-color: #4aa3d3;
     text-decoration: none;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .16) inset;
+}
+
+.admin-mode .flash,
+.admin-mode .admin-security-banner,
+.admin-mode .content-header,
+.admin-mode .admin-stats,
+.admin-mode h2,
+.admin-mode .settings-form,
+.admin-mode .maintenance-admin-panel,
+.admin-mode .admin-table,
+.admin-mode .empty-state,
+.admin-mode .admin-auth-shell {
+    grid-column: 2;
+}
+
+.admin-mode .flash {
+    margin: 14px 18px 0;
+}
+
+.admin-security-banner {
+    margin: 16px 18px 0;
+    padding: 10px 12px;
+    background: #fff8d8;
+    border: 1px solid #e7c45f;
+    color: #684c00;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.admin-mode .content-header {
+    margin: 18px 18px 0;
+    padding: 18px 20px;
+    color: #fff;
+    background: linear-gradient(180deg, #14364d 0%, #0d2638 100%);
+    border: 1px solid #22465d;
+    border-radius: 5px 5px 0 0;
+}
+
+.admin-mode .content-header h1 {
+    color: #fff;
+    font-size: 22px;
+    letter-spacing: 0;
 }
 
 .admin-stats {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    padding: 10px;
-    border-bottom: 1px solid var(--border-main);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0 18px 18px;
+    padding: 14px;
+    background: #fff;
+    border: 1px solid #c6d7e1;
+    border-top: 0;
+    box-shadow: 0 1px 2px rgba(15, 34, 48, .08);
 }
 
 .admin-stats div {
-    background: #f7fbfe;
-    border: 1px solid var(--border-main);
-    padding: 8px;
+    background: #f2f8fb;
+    border: 1px solid #c9dce7;
+    border-radius: 4px;
+    padding: 10px;
+    color: #344b5a;
+}
+
+.admin-stats strong {
+    display: block;
+    margin-top: 4px;
+    color: #0e3147;
+    font-size: 19px;
+}
+
+.admin-mode h2 {
+    margin: 18px 18px 8px;
+    color: #122d40;
+    font-size: 16px;
+}
+
+.admin-mode .settings-form,
+.admin-mode .maintenance-admin-panel,
+.admin-mode .empty-state {
+    margin: 0 18px 18px;
+    background: #fff;
+    border: 1px solid #c6d7e1;
+    box-shadow: 0 1px 2px rgba(15, 34, 48, .06);
 }
 
 .admin-table {
-    width: 100%;
-    border-collapse: collapse;
+    width: calc(100% - 36px);
+    margin: 0 18px 24px;
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: 12px;
     table-layout: fixed;
+    background: #fff;
+    border: 1px solid #bfcfda;
+    box-shadow: 0 1px 2px rgba(15, 34, 48, .08);
 }
 
 .admin-table th,
 .admin-table td {
-    border-bottom: 1px solid #e8e8e8;
-    padding: 6px;
+    border-bottom: 1px solid #e1e9ee;
+    padding: 9px 8px;
     text-align: left;
     vertical-align: top;
 }
 
 .admin-table th {
-    background: var(--bg-body);
+    background: #dbeaf3;
+    color: #263844;
+    border-bottom-color: #bfd2de;
+}
+
+.admin-table tr:last-child td {
+    border-bottom: 0;
 }
 
 .admin-users-table th:nth-child(1),
@@ -2267,46 +2366,55 @@ button,
 .admin-users-table td:nth-child(6),
 .admin-users-table th:nth-child(7),
 .admin-users-table td:nth-child(7) {
-    width: 68px;
+    width: 66px;
 }
 
 .admin-users-table th:nth-child(8),
 .admin-users-table td:nth-child(8) {
-    width: 100px;
+    width: 96px;
 }
 
 .admin-users-table th:nth-child(9),
 .admin-users-table td:nth-child(9) {
-    width: 86px;
+    width: 92px;
 }
 
 .admin-users-table th:last-child,
 .admin-users-table td:last-child {
-    width: 430px;
+    width: 520px;
 }
 
 .admin-actions {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 4px;
+    grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+    gap: 5px;
     margin: 0;
-    max-width: 422px;
+    width: 100%;
     align-items: stretch;
 }
 
 .admin-actions button,
 .admin-actions a {
-    background: #f5f5f5;
-    border: 1px solid #c0ccd4;
-    color: #333;
+    background: #f7fafc;
+    border: 1px solid #b7c7d1;
+    color: #243744;
     font-size: 11px;
-    padding: 2px 5px;
+    padding: 4px 6px;
     cursor: pointer;
     width: 100%;
-    min-height: 23px;
+    min-height: 26px;
     line-height: 16px;
     text-align: center;
     overflow-wrap: anywhere;
+    border-radius: 3px;
+}
+
+.admin-actions button:hover,
+.admin-actions a:hover {
+    background: #e8f5fd;
+    border-color: #7db6d8;
+    color: #005f8f;
+    text-decoration: none;
 }
 
 .admin-actions a {
@@ -2326,12 +2434,65 @@ button,
     width: 100%;
     border: 1px solid var(--border-input);
     font-size: 11px;
-    padding: 3px 5px;
+    padding: 5px 6px;
+    border-radius: 3px;
 }
 
 .admin-actions textarea {
-    min-height: 42px;
+    min-height: 52px;
     resize: vertical;
+}
+
+.admin-auth-shell {
+    display: grid;
+    place-items: center;
+    min-height: calc(100vh - 30px);
+    padding: 24px;
+}
+
+.admin-auth-card {
+    width: 420px;
+    max-width: 100%;
+    padding: 22px;
+    background: #fff;
+    border: 1px solid #bfd1dd;
+    border-radius: 5px;
+    box-shadow: 0 3px 14px rgba(7, 19, 29, .18);
+}
+
+.admin-auth-kicker {
+    color: #1b7dba;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.admin-auth-card h1 {
+    margin: 5px 0 8px;
+    font-size: 20px;
+}
+
+.admin-auth-card p {
+    color: #596d7b;
+}
+
+.admin-mode .admin-auth-form {
+    margin: 14px 0;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+    background: transparent;
+}
+
+.passkey-admin-box {
+    margin-top: 10px;
+}
+
+.admin-auth-links {
+    display: flex;
+    gap: 12px;
+    margin-top: 14px;
+    font-size: 12px;
 }
 
 .autocomplete-box {
@@ -2441,5 +2602,277 @@ button,
 
     .topnav {
         white-space: normal;
+    }
+}
+
+@media (max-width: 720px) {
+    body {
+        min-width: 0;
+    }
+
+    .topbar-inner {
+        align-items: flex-start;
+        gap: 4px;
+        padding: 3px 8px;
+    }
+
+    .brand {
+        flex: 0 0 auto;
+    }
+
+    .topnav {
+        width: 100%;
+        line-height: 20px;
+        padding-bottom: 4px;
+    }
+
+    .subheader {
+        min-height: 0;
+    }
+
+    .subheader-inner {
+        align-items: flex-start;
+        padding: 8px;
+    }
+
+    .compose-avatar-frame {
+        margin-top: 18px;
+    }
+
+    .compose-form,
+    .compose-form textarea,
+    .compose-bottom,
+    .compose-tools,
+    .compose-panel {
+        width: calc(100vw - 84px);
+        min-width: 0;
+    }
+
+    .compose-tools button {
+        flex: 1 1 calc(50% - 4px);
+        justify-content: center;
+        min-height: 26px;
+    }
+
+    .header-search {
+        width: 100%;
+        margin: 8px 0 0 58px;
+    }
+
+    .header-search input {
+        width: calc(100vw - 82px);
+    }
+
+    .page-wrap,
+    .page-wrap-centered,
+    .page-wrap-wide {
+        max-width: none;
+        border-left: 0;
+        border-right: 0;
+    }
+
+    .page-wrap-centered {
+        padding: 16px 8px;
+    }
+
+    .auth-card,
+    .main-col-centered {
+        width: 100%;
+        max-width: 420px;
+    }
+
+    .tweet-row {
+        margin: 0;
+        padding: 9px 8px;
+    }
+
+    .tweet-body {
+        overflow-wrap: anywhere;
+    }
+
+    .tweet-gif img,
+    .tweet-media img,
+    .tweet-media video,
+    .tweet-media.media-count-1 img,
+    .tweet-media.media-count-1 video,
+    .tweet-media:not(.media-count-1) img,
+    .tweet-media:not(.media-count-1) video,
+    .tweet-audio,
+    .tweet-embed,
+    .tweet-link-card {
+        width: 100%;
+        height: auto;
+        max-height: 220px;
+    }
+
+    .tweet-embed iframe {
+        height: 190px;
+    }
+
+    .profile-header {
+        padding: 12px 8px;
+    }
+
+    .profile-header.has-banner {
+        padding-top: 104px;
+    }
+
+    .profile-banner {
+        height: 96px;
+    }
+
+    .profile-avatar-frame {
+        float: none;
+        margin: 0 0 8px;
+    }
+
+    .profile-info h1 {
+        line-height: 22px;
+    }
+
+    .profile-action {
+        position: static;
+        margin-top: 10px;
+    }
+
+    .tabs {
+        display: flex;
+        overflow-x: auto;
+    }
+
+    .tabs a {
+        flex: 1 0 auto;
+        text-align: center;
+    }
+
+    .dm-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .dm-list {
+        border-right: 0;
+        border-bottom: 1px solid var(--border-main);
+        max-height: 210px;
+        overflow-y: auto;
+    }
+
+    .dm-thread {
+        min-width: 0;
+    }
+
+    .settings-form,
+    .account-switcher-settings {
+        padding: 8px;
+    }
+
+    .account-switch-row {
+        grid-template-columns: 34px minmax(0, 1fr);
+    }
+
+    .account-switch-row form {
+        grid-column: 2;
+    }
+
+    .passkey-row {
+        grid-template-columns: 1fr;
+    }
+
+    .landing-hero {
+        min-height: 0;
+    }
+
+    .site-footer div {
+        padding: 8px;
+    }
+
+    .admin-mode .topbar-inner {
+        padding: 3px 8px;
+    }
+
+    .admin-mode .main-col-wide {
+        display: block;
+        min-height: 0;
+    }
+
+    .admin-mode .admin-nav {
+        position: static;
+        min-height: 0;
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 8px;
+        white-space: nowrap;
+    }
+
+    .admin-mode .admin-nav a {
+        padding: 10px 12px;
+    }
+
+    .admin-mode .content-header {
+        margin: 10px 8px 0;
+        padding: 12px 10px;
+    }
+
+    .admin-security-banner,
+    .admin-stats,
+    .admin-mode h2,
+    .admin-mode .settings-form,
+    .admin-mode .maintenance-admin-panel,
+    .admin-mode .empty-state,
+    .admin-mode .admin-auth-shell {
+        margin-left: 8px;
+        margin-right: 8px;
+    }
+
+    .admin-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+        table-layout: auto;
+        width: calc(100% - 16px);
+        margin-left: 8px;
+        margin-right: 8px;
+    }
+
+    .admin-table th,
+    .admin-table td {
+        min-width: 88px;
+        white-space: normal;
+    }
+
+    .admin-users-table th:last-child,
+    .admin-users-table td:last-child {
+        min-width: 260px;
+        width: 260px;
+    }
+
+    .admin-actions {
+        grid-template-columns: 1fr;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 420px) {
+    .compose-form,
+    .compose-form textarea,
+    .compose-bottom,
+    .compose-tools,
+    .compose-panel {
+        width: calc(100vw - 76px);
+    }
+
+    .compose-tools button {
+        flex-basis: 100%;
+    }
+
+    .tweet-avatar-frame {
+        margin-right: 8px;
+    }
+
+    .tweet-content {
+        min-width: 0;
     }
 }

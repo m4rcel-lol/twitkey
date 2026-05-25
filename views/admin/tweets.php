@@ -5,6 +5,9 @@
     <a href="/admin/tweets" class="active">Manage Tweets</a>
     <a href="/admin/notes">Community Notes</a>
 </nav>
+<?php if (empty($adminSecurityFresh)): ?>
+    <div class="admin-security-banner">Admin actions are locked. <a href="/admin/verify">Verify 2FA</a> to moderate tweets.</div>
+<?php endif; ?>
 <div class="content-header">
     <h1>Manage Tweets</h1>
 </div>

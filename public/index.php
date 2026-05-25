@@ -47,6 +47,7 @@ $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $requestMethod = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 $currentUser = Auth::user();
 $maintenanceAllowed = ($requestPath === '/login' && in_array($requestMethod, ['GET', 'POST'], true))
+    || str_starts_with($requestPath, '/login/passkey')
     || str_starts_with($requestPath, '/login/2fa')
     || ($requestPath === '/logout' && $requestMethod === 'GET');
 if (Helpers::maintenanceModeEnabled() && !User::isOwnerRow($currentUser) && !$maintenanceAllowed) {
@@ -71,6 +72,8 @@ $router->add('GET', '/policy', [HomeController::class, 'privacy']);
 $router->add('GET', '/terms', [HomeController::class, 'terms']);
 $router->add('GET', '/login', [AuthController::class, 'loginForm']);
 $router->add('POST', '/login', [AuthController::class, 'login']);
+$router->add('GET', '/login/passkey/options', [AuthController::class, 'passwordlessPasskeyOptions']);
+$router->add('POST', '/login/passkey/verify', [AuthController::class, 'verifyPasswordlessPasskey']);
 $router->add('GET', '/login/2fa', [AuthController::class, 'twoFactorForm']);
 $router->add('POST', '/login/2fa/totp', [AuthController::class, 'verifyTwoFactorTotp']);
 $router->add('GET', '/login/2fa/passkey/options', [AuthController::class, 'passkeyLoginOptions']);
@@ -109,6 +112,10 @@ $router->add('GET', '/notes/pending', [TweetController::class, 'pendingNotes']);
 $router->add('POST', '/tweet/{id}/note', [TweetController::class, 'addNote']);
 $router->add('POST', '/note/{id}/vote', [TweetController::class, 'voteNote']);
 $router->add('GET', '/admin', [AdminController::class, 'dashboard']);
+$router->add('GET', '/admin/verify', [AdminController::class, 'verifyForm']);
+$router->add('POST', '/admin/verify', [AdminController::class, 'verifyTotp']);
+$router->add('GET', '/admin/verify/passkey/options', [AdminController::class, 'passkeyVerifyOptions']);
+$router->add('POST', '/admin/verify/passkey', [AdminController::class, 'verifyPasskey']);
 $router->add('POST', '/admin/site-alert', [AdminController::class, 'siteAlert']);
 $router->add('POST', '/admin/maintenance', [AdminController::class, 'maintenance']);
 $router->add('GET', '/admin/users', [AdminController::class, 'users']);

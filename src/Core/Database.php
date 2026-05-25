@@ -397,6 +397,15 @@ final class Database
                 created_at TEXT DEFAULT (datetime(\'now\')),
                 last_used_at TEXT DEFAULT NULL
             )',
+            'CREATE TABLE IF NOT EXISTS remember_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                selector TEXT NOT NULL UNIQUE,
+                token_hash TEXT NOT NULL,
+                expires_at VARCHAR(32) NOT NULL,
+                created_at TEXT DEFAULT (datetime(\'now\')),
+                last_used_at TEXT DEFAULT NULL
+            )',
             'CREATE INDEX IF NOT EXISTS idx_tweets_scheduled_at ON tweets(scheduled_at)',
             'CREATE INDEX IF NOT EXISTS idx_tweet_media_tweet_id ON tweet_media(tweet_id)',
             'CREATE INDEX IF NOT EXISTS idx_poll_options_poll_id ON poll_options(poll_id)',
@@ -406,6 +415,8 @@ final class Database
             'CREATE INDEX IF NOT EXISTS idx_direct_messages_recipient_read ON direct_messages(recipient_id, is_read)',
             'CREATE INDEX IF NOT EXISTS idx_site_alerts_active_updated ON site_alerts(is_active, updated_at)',
             'CREATE INDEX IF NOT EXISTS idx_passkeys_user_id ON two_factor_passkeys(user_id)',
+            'CREATE INDEX IF NOT EXISTS idx_remember_tokens_user_id ON remember_tokens(user_id)',
+            'CREATE INDEX IF NOT EXISTS idx_remember_tokens_expires_at ON remember_tokens(expires_at)',
         ];
 
         foreach ($statements as $statement) {
