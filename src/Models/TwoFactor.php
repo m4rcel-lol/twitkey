@@ -141,6 +141,7 @@ final class TwoFactor
     {
         $challenge = self::base64url(random_bytes(32));
         $_SESSION['passkey_register_challenge'] = $challenge;
+        $_SESSION['passkey_register_origin'] = self::origin();
         return [
             'challenge' => $challenge,
             'rp' => ['name' => Helpers::env('APP_NAME', 'Twitkey'), 'id' => self::rpId()],
@@ -172,7 +173,12 @@ final class TwoFactor
     public static function registerPasskey(int $userId, array $payload, string $name): void
     {
         $clientData = self::jsonFromB64((string)($payload['response']['clientDataJSON'] ?? ''));
-        self::verifyClientData($clientData, 'webauthn.create', (string)($_SESSION['passkey_register_challenge'] ?? ''));
+        self::verifyClientData(
+            $clientData,
+            'webauthn.create',
+            (string)($_SESSION['passkey_register_challenge'] ?? ''),
+            (string)($_SESSION['passkey_register_origin'] ?? '')
+        );
 
         $attestation = self::cborDecode(self::base64urlDecode((string)($payload['response']['attestationObject'] ?? '')));
         if (!is_array($attestation) || !isset($attestation['authData']) || !is_string($attestation['authData'])) {
@@ -196,7 +202,7 @@ final class TwoFactor
                 'name' => $name !== '' ? $name : 'Passkey',
             ]
         );
-        unset($_SESSION['passkey_register_challenge']);
+        unset($_SESSION['passkey_register_challenge'], $_SESSION['passkey_register_origin']);
     }
 
     /**
@@ -212,6 +218,7 @@ final class TwoFactor
         }
         $challenge = self::base64url(random_bytes(32));
         $_SESSION['passkey_login_challenge'] = $challenge;
+        $_SESSION['passkey_login_origin'] = self::origin();
         return [
             'challenge' => $challenge,
             'rpId' => self::rpId(),
@@ -233,6 +240,7 @@ final class TwoFactor
     {
         $challenge = self::base64url(random_bytes(32));
         $_SESSION['passkey_passwordless_challenge'] = $challenge;
+        $_SESSION['passkey_passwordless_origin'] = self::origin();
         return [
             'challenge' => $challenge,
             'rpId' => self::rpId(),
@@ -256,8 +264,13 @@ final class TwoFactor
         if (!$key) {
             throw new \RuntimeException('Passkey is not registered for this account.');
         }
-        self::verifyAssertionWithKey($key, $payload, (string)($_SESSION['passkey_login_challenge'] ?? ''));
-        unset($_SESSION['passkey_login_challenge']);
+        self::verifyAssertionWithKey(
+            $key,
+            $payload,
+            (string)($_SESSION['passkey_login_challenge'] ?? ''),
+            (string)($_SESSION['passkey_login_origin'] ?? '')
+        );
+        unset($_SESSION['passkey_login_challenge'], $_SESSION['passkey_login_origin']);
     }
 
     /**
@@ -283,8 +296,13 @@ final class TwoFactor
         if ((int)($key['is_system'] ?? 0) === 1 || (int)($key['is_suspended'] ?? 0) === 1 || (int)($key['is_deleted'] ?? 0) === 1) {
             throw new \RuntimeException('That account cannot sign in.');
         }
-        self::verifyAssertionWithKey($key, $payload, (string)($_SESSION['passkey_passwordless_challenge'] ?? ''));
-        unset($_SESSION['passkey_passwordless_challenge']);
+        self::verifyAssertionWithKey(
+            $key,
+            $payload,
+            (string)($_SESSION['passkey_passwordless_challenge'] ?? ''),
+            (string)($_SESSION['passkey_passwordless_origin'] ?? '')
+        );
+        unset($_SESSION['passkey_passwordless_challenge'], $_SESSION['passkey_passwordless_origin']);
         $user = User::find((int)$key['user_id']);
         if (!$user) {
             throw new \RuntimeException('Passkey account no longer exists.');
@@ -298,14 +316,14 @@ final class TwoFactor
      * @param array<string, mixed> $key
      * @param array<string, mixed> $payload
      */
-    private static function verifyAssertionWithKey(array $key, array $payload, string $challenge): void
+    private static function verifyAssertionWithKey(array $key, array $payload, string $challenge, string $expectedOrigin): void
     {
         $clientDataJson = self::base64urlDecode((string)($payload['response']['clientDataJSON'] ?? ''));
         $clientData = json_decode($clientDataJson, true);
         if (!is_array($clientData)) {
             throw new \RuntimeException('Passkey client data is invalid.');
         }
-        self::verifyClientData($clientData, 'webauthn.get', $challenge);
+        self::verifyClientData($clientData, 'webauthn.get', $challenge, $expectedOrigin);
 
         $authenticatorData = self::base64urlDecode((string)($payload['response']['authenticatorData'] ?? ''));
         self::verifyRpAndUserPresent($authenticatorData);
@@ -393,12 +411,14 @@ final class TwoFactor
         return $json;
     }
 
-    private static function verifyClientData(array $clientData, string $type, string $challenge): void
+    private static function verifyClientData(array $clientData, string $type, string $challenge, string $expectedOrigin): void
     {
         if ($challenge === '' || (string)($clientData['type'] ?? '') !== $type || !hash_equals($challenge, (string)($clientData['challenge'] ?? ''))) {
             throw new \RuntimeException('Passkey challenge is invalid.');
         }
-        if (strtolower((string)($clientData['origin'] ?? '')) !== self::origin()) {
+        $actualOrigin = self::normalizeOrigin((string)($clientData['origin'] ?? ''));
+        $allowedOrigin = self::normalizeOrigin($expectedOrigin) ?: self::origin();
+        if ($actualOrigin === null || !hash_equals($allowedOrigin, $actualOrigin)) {
             throw new \RuntimeException('Passkey origin is invalid.');
         }
     }
@@ -595,17 +615,76 @@ final class TwoFactor
 
     private static function rpId(): string
     {
-        $host = $_SERVER['HTTP_HOST'] ?? parse_url(Helpers::env('APP_URL', 'http://localhost'), PHP_URL_HOST) ?: 'localhost';
-        return strtolower(preg_replace('/:\d+$/', '', $host) ?? $host);
+        return self::currentRequestParts()['host'];
     }
 
     private static function origin(): string
     {
-        $proto = (string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '');
+        $parts = self::currentRequestParts();
+        return self::buildOrigin($parts['scheme'], $parts['host'], $parts['port']);
+    }
+
+    /**
+     * Normalize browser/server origins so localhost:80 matches localhost.
+     */
+    private static function normalizeOrigin(string $origin): ?string
+    {
+        $origin = trim($origin);
+        if ($origin === '') {
+            return null;
+        }
+        $parts = parse_url($origin);
+        if (!is_array($parts)) {
+            return null;
+        }
+        $scheme = strtolower((string)($parts['scheme'] ?? ''));
+        $host = strtolower((string)($parts['host'] ?? ''));
+        if (!in_array($scheme, ['http', 'https'], true) || $host === '') {
+            return null;
+        }
+        $port = isset($parts['port']) ? (int)$parts['port'] : null;
+        return self::buildOrigin($scheme, $host, $port);
+    }
+
+    /**
+     * Return canonical scheme/host/port for the current HTTP request.
+     *
+     * @return array{scheme:string,host:string,port:int|null}
+     */
+    private static function currentRequestParts(): array
+    {
+        $proto = trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0]);
         if ($proto === '') {
             $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         }
-        $host = $_SERVER['HTTP_HOST'] ?? parse_url(Helpers::env('APP_URL', 'http://localhost'), PHP_URL_HOST) ?: 'localhost';
-        return strtolower($proto) . '://' . strtolower((string)$host);
+        $scheme = strtolower($proto) === 'https' ? 'https' : 'http';
+
+        $fallback = Helpers::env('APP_URL', 'http://localhost');
+        $fallbackHost = parse_url($fallback, PHP_URL_HOST) ?: 'localhost';
+        $rawHost = (string)($_SERVER['HTTP_HOST'] ?? $fallbackHost);
+        $parts = parse_url(str_contains($rawHost, '://') ? $rawHost : $scheme . '://' . $rawHost);
+        if (!is_array($parts)) {
+            $parts = parse_url($fallback);
+        }
+        if (!is_array($parts)) {
+            $parts = ['host' => $fallbackHost];
+        }
+
+        $host = strtolower((string)($parts['host'] ?? $fallbackHost));
+        $port = isset($parts['port']) ? (int)$parts['port'] : null;
+        return ['scheme' => $scheme, 'host' => $host, 'port' => $port];
+    }
+
+    /**
+     * Build a canonical origin string, omitting default ports.
+     */
+    private static function buildOrigin(string $scheme, string $host, ?int $port): string
+    {
+        $scheme = strtolower($scheme);
+        $host = strtolower($host);
+        $displayHost = str_contains($host, ':') && !str_starts_with($host, '[') ? '[' . $host . ']' : $host;
+        $defaultPort = ($scheme === 'http' && $port === 80) || ($scheme === 'https' && $port === 443);
+        $portPart = $port !== null && !$defaultPort ? ':' . $port : '';
+        return $scheme . '://' . $displayHost . $portPart;
     }
 }
