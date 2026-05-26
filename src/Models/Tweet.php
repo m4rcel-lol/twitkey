@@ -61,6 +61,39 @@ final class Tweet
     }
 
     /**
+     * Return the mutuals timeline (posts by you + mutual followers + reposts by mutuals).
+     * Mutual = users with reciprocal follows (you follow them and they follow you).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function feedForMutuals(int $userId, int $page, ?int $lastId = null): array
+    {
+        $mutual = '(SELECT f.following_id FROM follows f JOIN follows b ON f.following_id = b.follower_id AND b.following_id = :user_id WHERE f.follower_id = :user_id)';
+        $where = 't.is_deleted = 0 AND u.is_suspended = 0 AND ' . self::publishedWhere()
+            . ' AND (t.user_id = :user_id OR t.user_id IN ' . $mutual
+            . ' OR t.id IN (SELECT rt.tweet_id FROM retweets rt WHERE rt.user_id = :user_id OR rt.user_id IN ' . $mutual . '))';
+        $rows = self::feed($where, ['user_id' => $userId], $page, $lastId);
+        self::hydrateTimelineReposts($rows, $userId);
+        return $rows;
+    }
+
+    /**
+     * Return newer mutuals timeline tweets for polling.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function newerForMutuals(int $userId, int $sinceId): array
+    {
+        $mutual = '(SELECT f.following_id FROM follows f JOIN follows b ON f.following_id = b.follower_id AND b.following_id = :user_id WHERE f.follower_id = :user_id)';
+        $where = 't.id > :since_id AND t.is_deleted = 0 AND u.is_suspended = 0 AND ' . self::publishedWhere()
+            . ' AND (t.user_id = :user_id OR t.user_id IN ' . $mutual
+            . ' OR t.id IN (SELECT rt.tweet_id FROM retweets rt WHERE rt.user_id = :user_id OR rt.user_id IN ' . $mutual . '))';
+        $rows = self::feed($where, ['since_id' => $sinceId, 'user_id' => $userId], 1, null, 20);
+        self::hydrateTimelineReposts($rows, $userId);
+        return $rows;
+    }
+
+    /**
      * Return the public timeline.
      *
      * @return array<int, array<string, mixed>>
@@ -274,7 +307,7 @@ final class Tweet
     }
 
     /**
-     * Repost a tweet once for a user and return the new count/state.
+     * Retweet a tweet once for a user and return the new count/state.
      *
      * @return array{retweeted:bool,count:int}
      */
@@ -291,7 +324,7 @@ final class Tweet
                 throw new \RuntimeException('Forbidden.');
             }
             if ((int)$original['user_id'] === $userId) {
-                throw new \InvalidArgumentException('You cannot repost your own post.');
+                throw new \InvalidArgumentException('You cannot retweet your own post.');
             }
             $existing = $db->one('SELECT id FROM retweets WHERE user_id = :user_id AND tweet_id = :tweet_id', ['user_id' => $userId, 'tweet_id' => $tweetId]);
             if ($existing) {
@@ -341,7 +374,7 @@ final class Tweet
     }
 
     /**
-     * True when a user has reposted a tweet.
+     * True when a user has retweeted a tweet.
      */
     public static function isRetweeted(?int $userId, int $tweetId): bool
     {

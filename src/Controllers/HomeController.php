@@ -32,13 +32,13 @@ final class HomeController
             return;
         }
 
-        $tweets = Tweet::feedForUser((int)$user['id'], $page, isset($_GET['last_id']) ? (int)$_GET['last_id'] : null);
+        // Public timeline is now the default for logged-in users (per request).
         Helpers::render('home/timeline', [
-            'title' => 'Home',
-            'heading' => 'Home',
-            'tweets' => $tweets,
+            'title' => 'Public Timeline',
+            'heading' => 'Public Timeline',
+            'tweets' => Tweet::publicTimeline($page),
             'page' => $page,
-            'basePath' => '/',
+            'basePath' => '/public',
         ]);
     }
 
@@ -54,6 +54,23 @@ final class HomeController
             'tweets' => Tweet::publicTimeline($page),
             'page' => $page,
             'basePath' => '/public',
+        ]);
+    }
+
+    /**
+     * Show the mutuals timeline (reciprocal follows) for the current user.
+     */
+    public function mutuals(): void
+    {
+        $user = Auth::requireLogin();
+        $page = Helpers::page();
+        $tweets = Tweet::feedForMutuals((int)$user['id'], $page);
+        Helpers::render('home/timeline', [
+            'title' => 'Mutuals',
+            'heading' => 'Mutuals',
+            'tweets' => $tweets,
+            'page' => $page,
+            'basePath' => '/mutuals',
         ]);
     }
 

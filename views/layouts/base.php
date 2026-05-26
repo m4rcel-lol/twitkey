@@ -43,7 +43,7 @@ $switchAccounts = $currentUser ? Auth::linkedAccounts() : [];
         </a>
         <div class="topnav">
             <?php if ($currentUser): ?>
-                <a href="/">Home</a> |
+                <a href="/mutuals">Mutuals</a> |
                 <a href="/users">Users</a> |
                 <a href="/<?= Helpers::h($currentUser['username']) ?>">Profile</a> |
                 <a href="/replies">@Replies</a> |

@@ -66,6 +66,7 @@ $router = new Router();
 $router->add('GET', '/', [HomeController::class, 'timeline']);
 $router->add('POST', '/', [TweetController::class, 'create']);
 $router->add('GET', '/public', [HomeController::class, 'publicTimeline']);
+$router->add('GET', '/mutuals', [HomeController::class, 'mutuals']);
 $router->add('GET', '/users', [HomeController::class, 'users']);
 $router->add('GET', '/help', [HomeController::class, 'help']);
 $router->add('GET', '/privacy', [HomeController::class, 'privacy']);

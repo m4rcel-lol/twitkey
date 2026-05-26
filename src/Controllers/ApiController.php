@@ -212,6 +212,9 @@ final class ApiController
         if ($scope === 'home') {
             $user = Auth::requireLogin();
             $tweets = Tweet::newerForUser((int)$user['id'], $sinceId);
+        } elseif ($scope === 'mutuals') {
+            $user = Auth::requireLogin();
+            $tweets = Tweet::newerForMutuals((int)$user['id'], $sinceId);
         } elseif ($scope === 'mentions') {
             $user = Auth::requireLogin();
             $tweets = Tweet::newerMentionsFor((string)$user['username'], $sinceId, (int)$user['id']);
