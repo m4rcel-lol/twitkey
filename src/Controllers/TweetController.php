@@ -117,10 +117,9 @@ final class TweetController
         Helpers::verifyCsrf();
         $user = Auth::requireActiveUser();
         try {
-            $tweet = Tweet::retweet((int)$user['id'], (int)$id);
+            $result = Tweet::retweet((int)$user['id'], (int)$id);
             if (Helpers::wantsJson()) {
-                $html = Helpers::renderPartial('partials/tweet_row', ['tweet' => $tweet, 'currentUser' => $user]);
-                Helpers::json(['ok' => true, 'html' => $html]);
+                Helpers::json(['ok' => true] + $result);
             }
             Helpers::redirect($_SERVER['HTTP_REFERER'] ?? '/');
         } catch (\Throwable $e) {

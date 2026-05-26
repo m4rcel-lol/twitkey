@@ -22,6 +22,12 @@
     <label>Avatar
         <input type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp" data-crop-input="avatar">
     </label>
+    <?php if (!empty($user['avatar'])): ?>
+        <label class="checkbox-label remove-media-option">
+            <input type="checkbox" name="remove_avatar" value="1">
+            Remove current avatar
+        </label>
+    <?php endif; ?>
     <input type="hidden" name="avatar_crop_x" data-crop-field="avatar:x">
     <input type="hidden" name="avatar_crop_y" data-crop-field="avatar:y">
     <input type="hidden" name="avatar_crop_w" data-crop-field="avatar:w">
@@ -32,11 +38,20 @@
             <img src="" data-crop-image alt="">
             <span class="crop-box" data-crop-box></span>
         </div>
+        <label class="crop-zoom-label">Crop size
+            <input type="range" min="40" max="100" value="100" data-crop-zoom>
+        </label>
         <div class="crop-hint">Drag the box to choose how your profile picture should be framed.</div>
     </div>
     <label>Profile banner
         <input type="file" name="banner" accept="image/jpeg,image/png,image/gif,image/webp" data-crop-input="banner">
     </label>
+    <?php if (!empty($user['background'])): ?>
+        <label class="checkbox-label remove-media-option">
+            <input type="checkbox" name="remove_banner" value="1">
+            Remove current banner
+        </label>
+    <?php endif; ?>
     <input type="hidden" name="banner_crop_x" data-crop-field="banner:x">
     <input type="hidden" name="banner_crop_y" data-crop-field="banner:y">
     <input type="hidden" name="banner_crop_w" data-crop-field="banner:w">
@@ -47,6 +62,9 @@
             <img src="" data-crop-image alt="">
             <span class="crop-box" data-crop-box></span>
         </div>
+        <label class="crop-zoom-label">Crop size
+            <input type="range" min="40" max="100" value="100" data-crop-zoom>
+        </label>
         <div class="crop-hint">Drag the wide box to position the banner exactly how it should appear.</div>
     </div>
     <div class="settings-section">
@@ -153,44 +171,6 @@
             <?php endforeach; ?>
         <?php endif; ?>
     </div>
-</div>
-
-<div class="content-header secondary-heading">
-    <h1>Account Switching</h1>
-</div>
-<div class="account-switcher-settings">
-    <?php foreach (($linkedAccounts ?? []) as $account): ?>
-        <div class="account-switch-row<?= (int)$account['id'] === (int)$user['id'] ? ' active' : '' ?>">
-            <span class="avatar-frame small-avatar-frame">
-                <img src="<?= Helpers::avatarUrl($account) ?>" class="small-avatar" alt="">
-                <?= Helpers::adminAvatarBadge($account) ?>
-            </span>
-            <div>
-                <?= Helpers::renderUserName($account) ?>
-                <div class="muted">@<?= Helpers::h($account['username']) ?><?= (int)$account['id'] === (int)$user['id'] ? ' · current' : '' ?></div>
-            </div>
-            <?php if ((int)$account['id'] !== (int)$user['id']): ?>
-                <form action="/accounts/switch/<?= (int)$account['id'] ?>" method="post">
-                    <?= Helpers::csrfField() ?>
-                    <button type="submit" class="mini-button">Switch</button>
-                </form>
-                <form action="/accounts/remove/<?= (int)$account['id'] ?>" method="post">
-                    <?= Helpers::csrfField() ?>
-                    <button type="submit" class="mini-button">Remove</button>
-                </form>
-            <?php endif; ?>
-        </div>
-    <?php endforeach; ?>
-    <form action="/accounts/add" method="post" class="settings-form compact-form account-add-form">
-        <?= Helpers::csrfField() ?>
-        <label>Username or email
-            <input type="text" name="login" autocomplete="username">
-        </label>
-        <label>Password
-            <input type="password" name="password" autocomplete="current-password">
-        </label>
-        <button type="submit" class="primary-button">Add account</button>
-    </form>
 </div>
 
 <div class="content-header secondary-heading">

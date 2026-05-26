@@ -58,16 +58,23 @@ $isOwner = User::isOwnerRow($profile);
     <a class="<?= $tab === 'tweets' ? 'active' : '' ?>" href="/<?= Helpers::h($profile['username']) ?>">Tweets</a>
     <a class="<?= $tab === 'replies' ? 'active' : '' ?>" href="/<?= Helpers::h($profile['username']) ?>?tab=replies">Replies</a>
     <a class="<?= $tab === 'favorites' ? 'active' : '' ?>" href="/<?= Helpers::h($profile['username']) ?>?tab=favorites">Favorites</a>
+    <?php if ($canViewAnalytics): ?>
+        <a class="<?= $tab === 'analytics' ? 'active' : '' ?>" href="/<?= Helpers::h($profile['username']) ?>?tab=analytics">Analytics</a>
+    <?php endif; ?>
 </nav>
 
-<div class="timeline" id="timeline"<?= $canSeeTweets ? ' data-realtime-feed="/api/timeline?scope=profile&amp;username=' . Helpers::h($profile['username']) . '&amp;tab=' . Helpers::h($tab) . '" data-realtime-insert="prepend"' : '' ?>>
-    <?php if (!$canSeeTweets): ?>
-        <div class="empty-state">This account is private. Follow requests must be approved before posts are visible.</div>
-    <?php elseif ($tweets === []): ?>
-        <div class="empty-state">No tweets to show.</div>
-    <?php else: ?>
-        <?php foreach ($tweets as $tweet): ?>
-            <?= Helpers::renderPartial('partials/tweet_row', ['tweet' => $tweet, 'currentUser' => $currentUser]) ?>
-        <?php endforeach; ?>
-    <?php endif; ?>
-</div>
+<?php if ($tab === 'analytics'): ?>
+    <?= Helpers::renderPartial('profile/analytics', ['analytics' => $analytics]) ?>
+<?php else: ?>
+    <div class="timeline" id="timeline"<?= $canSeeTweets ? ' data-realtime-feed="/api/timeline?scope=profile&amp;username=' . Helpers::h($profile['username']) . '&amp;tab=' . Helpers::h($tab) . '" data-realtime-insert="prepend"' : '' ?>>
+        <?php if (!$canSeeTweets): ?>
+            <div class="empty-state">This account is private. Follow requests must be approved before posts are visible.</div>
+        <?php elseif ($tweets === []): ?>
+            <div class="empty-state">No tweets to show.</div>
+        <?php else: ?>
+            <?php foreach ($tweets as $tweet): ?>
+                <?= Helpers::renderPartial('partials/tweet_row', ['tweet' => $tweet, 'currentUser' => $currentUser]) ?>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>

@@ -399,13 +399,25 @@
                     return;
                 }
                 event.preventDefault();
+                const row = form.closest('.tweet-row');
+                const button = form.querySelector('button');
+                if (button) {
+                    button.disabled = true;
+                }
                 try {
                     const data = await jsonFetch(form.action, { method: 'POST', body: new FormData(form) });
-                    const timeline = document.querySelector('#timeline');
-                    if (timeline && data.html) {
-                        insertTweetHtml(timeline, data.html, 'prepend');
+                    if (button) {
+                        button.textContent = 'reposted';
+                        button.classList.add('is-retweeted');
+                    }
+                    const count = row?.querySelector('.retweet-count');
+                    if (count) {
+                        count.textContent = String(data.count);
                     }
                 } catch (error) {
+                    if (button) {
+                        button.disabled = false;
+                    }
                     alert(error.message);
                 }
             });
@@ -581,6 +593,41 @@
 
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
+    document.querySelectorAll('[data-account-menu]').forEach((menu) => {
+        const toggle = menu.querySelector('[data-account-toggle]');
+        const dropdown = menu.querySelector('[data-account-dropdown]');
+        if (!toggle || !dropdown) {
+            return;
+        }
+        const close = () => {
+            dropdown.hidden = true;
+            toggle.classList.remove('open');
+            toggle.setAttribute('aria-expanded', 'false');
+        };
+        toggle.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const opening = dropdown.hidden;
+            document.querySelectorAll('[data-account-dropdown]').forEach((other) => {
+                if (other !== dropdown) {
+                    other.hidden = true;
+                }
+            });
+            dropdown.hidden = !opening;
+            toggle.classList.toggle('open', opening);
+            toggle.setAttribute('aria-expanded', opening ? 'true' : 'false');
+        });
+        document.addEventListener('click', (event) => {
+            if (!menu.contains(event.target)) {
+                close();
+            }
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                close();
+            }
+        });
+    });
+
     const themeSelect = document.querySelector('[data-theme-select]');
     const customThemePanel = document.querySelector('[data-custom-theme-panel]');
     if (themeSelect && customThemePanel) {
@@ -597,6 +644,7 @@
         const stage = cropper?.querySelector('[data-crop-stage]');
         const image = cropper?.querySelector('[data-crop-image]');
         const box = cropper?.querySelector('[data-crop-box]');
+        const zoom = cropper?.querySelector('[data-crop-zoom]');
         const aspect = Number(cropper?.dataset.cropAspect || '1') || 1;
         let crop = null;
         let drag = null;
@@ -647,23 +695,30 @@
             writeCropFields();
         };
 
-        const createInitialCrop = () => {
+        const createInitialCrop = (preserveCenter = false) => {
             const rect = imageRectInStage();
             if (rect.width <= 0 || rect.height <= 0) {
                 return;
             }
-            let width = rect.width;
+            const previousCenter = crop && preserveCenter ? {
+                x: crop.x + (crop.w / 2),
+                y: crop.y + (crop.h / 2),
+            } : null;
+            const zoomScale = clamp(Number(zoom?.value || '100') / 100, 0.4, 1);
+            let width = rect.width * zoomScale;
             let height = width / aspect;
             if (height > rect.height) {
-                height = rect.height;
+                height = rect.height * zoomScale;
                 width = height * aspect;
             }
             crop = {
-                x: rect.left + ((rect.width - width) / 2),
-                y: rect.top + ((rect.height - height) / 2),
+                x: previousCenter ? previousCenter.x - (width / 2) : rect.left + ((rect.width - width) / 2),
+                y: previousCenter ? previousCenter.y - (height / 2) : rect.top + ((rect.height - height) / 2),
                 w: width,
                 h: height,
             };
+            crop.x = clamp(crop.x, rect.left, rect.left + rect.width - crop.w);
+            crop.y = clamp(crop.y, rect.top, rect.top + rect.height - crop.h);
             renderCrop();
         };
 
@@ -683,9 +738,18 @@
             objectUrl = URL.createObjectURL(file);
             image.onload = () => {
                 cropper.hidden = false;
-                requestAnimationFrame(createInitialCrop);
+                if (zoom) {
+                    zoom.value = '100';
+                }
+                requestAnimationFrame(() => createInitialCrop(false));
             };
             image.src = objectUrl;
+        });
+
+        zoom?.addEventListener('input', () => {
+            if (!cropper.hidden && image.getAttribute('src')) {
+                createInitialCrop(true);
+            }
         });
 
         box.addEventListener('pointerdown', (event) => {
@@ -724,7 +788,7 @@
         box.addEventListener('pointercancel', stopDrag);
         window.addEventListener('resize', () => {
             if (!cropper.hidden && image.getAttribute('src')) {
-                createInitialCrop();
+                createInitialCrop(false);
             }
         });
     });

@@ -46,7 +46,7 @@ final class Helpers
      */
     public static function h(mixed $value): string
     {
-        return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+        return htmlspecialchars((string)$value, ENT_COMPAT | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
     }
 
     /**

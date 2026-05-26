@@ -2,6 +2,7 @@
 use Twitkey\Core\Helpers;
 use Twitkey\Core\Session;
 use Twitkey\Core\Database;
+use Twitkey\Core\Auth;
 use Twitkey\Models\Notification;
 
 $appName = Helpers::env('APP_NAME', 'Twitkey');
@@ -19,6 +20,7 @@ $bodyClasses = ['theme-' . $theme];
 if (!empty($adminLayout)) {
     $bodyClasses[] = 'admin-mode';
 }
+$switchAccounts = $currentUser ? Auth::linkedAccounts() : [];
 ?>
 <!doctype html>
 <html lang="en">
@@ -60,6 +62,43 @@ if (!empty($adminLayout)) {
                 <a href="/help">Help</a>
             <?php endif; ?>
         </div>
+        <?php if ($currentUser): ?>
+            <div class="header-account-menu" data-account-menu>
+                <button type="button" class="header-account-button" data-account-toggle aria-expanded="false" aria-label="Switch account">
+                    <span class="avatar-frame header-account-avatar-frame">
+                        <img src="<?= Helpers::avatarUrl($currentUser) ?>" alt="">
+                        <?= Helpers::adminAvatarBadge($currentUser) ?>
+                    </span>
+                    <span class="header-account-caret">▾</span>
+                </button>
+                <div class="header-account-dropdown" data-account-dropdown hidden>
+                    <div class="account-menu-heading">Signed in as @<?= Helpers::h($currentUser['username']) ?></div>
+                    <?php foreach ($switchAccounts as $account): ?>
+                        <div class="account-menu-row<?= (int)$account['id'] === (int)$currentUser['id'] ? ' active' : '' ?>">
+                            <span class="avatar-frame small-avatar-frame">
+                                <img src="<?= Helpers::avatarUrl($account) ?>" class="small-avatar" alt="">
+                                <?= Helpers::adminAvatarBadge($account) ?>
+                            </span>
+                            <div class="account-menu-user">
+                                <?= Helpers::renderUserName($account) ?>
+                                <div class="muted">@<?= Helpers::h($account['username']) ?><?= (int)$account['id'] === (int)$currentUser['id'] ? ' · current' : '' ?></div>
+                            </div>
+                            <?php if ((int)$account['id'] !== (int)$currentUser['id']): ?>
+                                <form action="/accounts/switch/<?= (int)$account['id'] ?>" method="post">
+                                    <?= Helpers::csrfField() ?>
+                                    <button type="submit" class="mini-button">Switch</button>
+                                </form>
+                                <form action="/accounts/remove/<?= (int)$account['id'] ?>" method="post">
+                                    <?= Helpers::csrfField() ?>
+                                    <button type="submit" class="mini-button">Remove</button>
+                                </form>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                    <a href="/login?add_account=1" class="account-menu-add">Add account</a>
+                </div>
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 

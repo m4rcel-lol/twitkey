@@ -124,7 +124,7 @@ final class ApiController
      */
     public function media(string $file): void
     {
-        $isCurrentUpload = preg_match('/^(avatar|banner)_[a-f0-9]{64}\.jpg$/', $file) === 1;
+        $isCurrentUpload = preg_match('/^(avatar|banner)_[a-f0-9]{64}\.(jpg|gif)$/', $file) === 1;
         $isLegacyAvatar = preg_match('/^[a-f0-9]{64}\.jpg$/', $file) === 1;
         $isTweetMedia = preg_match('/^tweet_[a-f0-9]{64}\.(jpg|png|gif|webp|mp3|m4a|aac|wav|ogg|flac|aiff|wma|mp4|mov|webm|ogv|avi|wmv|mkv)$/', $file) === 1;
         if (!$isCurrentUpload && !$isLegacyAvatar && !$isTweetMedia) {

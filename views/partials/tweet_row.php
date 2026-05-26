@@ -18,6 +18,8 @@ $author = [
 $deleted = (int)($tweet['is_deleted'] ?? 0) === 1;
 $tweetId = (int)($tweet['id'] ?? 0);
 $favorited = $currentUser ? Tweet::isFavorited((int)$currentUser['id'], $tweetId) : false;
+$retweeted = $currentUser ? Tweet::isRetweeted((int)$currentUser['id'], $tweetId) : false;
+$isOwnTweet = $currentUser && (int)$currentUser['id'] === (int)$tweet['user_id'];
 ?>
 <article class="tweet-row<?= $deleted ? ' tweet-row-deleted' : '' ?>" id="tweet-<?= $tweetId ?>" data-tweet-id="<?= $tweetId ?>">
     <a href="/<?= Helpers::h($author['username']) ?>" class="avatar-frame tweet-avatar-frame">
@@ -28,6 +30,11 @@ $favorited = $currentUser ? Tweet::isFavorited((int)$currentUser['id'], $tweetId
         <?php if ($deleted): ?>
             <span class="tweet-body deleted-text">[Tweet deleted]</span>
         <?php else: ?>
+            <?php if (!empty($tweet['reposted_by_username'])): ?>
+                <div class="repost-context">
+                    <?= $currentUser && (int)($tweet['reposted_by_id'] ?? 0) === (int)$currentUser['id'] ? 'You' : Helpers::h($tweet['reposted_by_display_name'] ?: $tweet['reposted_by_username']) ?> reposted
+                </div>
+            <?php endif; ?>
             <strong><?= Helpers::renderUserName($author) ?></strong>
             <?php if (!empty($tweet['reply_to_id']) && !empty($tweet['reply_parent_username'])): ?>
                 <div class="reply-context">
@@ -110,7 +117,7 @@ $favorited = $currentUser ? Tweet::isFavorited((int)$currentUser['id'], $tweetId
                 · <a href="/tweet/<?= $tweetId ?>" class="tweet-action" data-reply-toggle>reply</a>
                 <?php if ($currentUser): ?>
                     · <form action="/tweet/<?= $tweetId ?>/retweet" method="post" class="inline-form" data-retweet-form>
-                        <?= Helpers::csrfField() ?><button type="submit" class="tweet-action">retweet</button>
+                        <?= Helpers::csrfField() ?><button type="submit" class="tweet-action<?= $retweeted ? ' is-retweeted' : '' ?>"<?= $retweeted || $isOwnTweet ? ' disabled' : '' ?>><?= $retweeted ? 'reposted' : 'repost' ?></button>
                     </form>
                     · <form action="/tweet/<?= $tweetId ?>/favorite" method="post" class="inline-form" data-favorite-form>
                         <?= Helpers::csrfField() ?><button type="submit" class="tweet-action<?= $favorited ? ' is-favorited' : '' ?>"><?= $favorited ? 'favorited' : 'favorite' ?></button>

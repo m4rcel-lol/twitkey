@@ -37,8 +37,12 @@ final class Tweet
      */
     public static function feedForUser(int $userId, int $page, ?int $lastId = null): array
     {
-        $where = 't.is_deleted = 0 AND u.is_suspended = 0 AND ' . self::publishedWhere() . ' AND (t.user_id = :user_id OR t.user_id IN (SELECT following_id FROM follows WHERE follower_id = :user_id))';
-        return self::feed($where, ['user_id' => $userId], $page, $lastId);
+        $where = 't.is_deleted = 0 AND u.is_suspended = 0 AND ' . self::publishedWhere()
+            . ' AND (t.user_id = :user_id OR t.user_id IN (SELECT following_id FROM follows WHERE follower_id = :user_id)'
+            . ' OR t.id IN (SELECT rt.tweet_id FROM retweets rt WHERE rt.user_id = :user_id OR rt.user_id IN (SELECT following_id FROM follows WHERE follower_id = :user_id)))';
+        $rows = self::feed($where, ['user_id' => $userId], $page, $lastId);
+        self::hydrateTimelineReposts($rows, $userId);
+        return $rows;
     }
 
     /**
@@ -48,8 +52,12 @@ final class Tweet
      */
     public static function newerForUser(int $userId, int $sinceId): array
     {
-        $where = 't.id > :since_id AND t.is_deleted = 0 AND u.is_suspended = 0 AND ' . self::publishedWhere() . ' AND (t.user_id = :user_id OR t.user_id IN (SELECT following_id FROM follows WHERE follower_id = :user_id))';
-        return self::feed($where, ['since_id' => $sinceId, 'user_id' => $userId], 1, null, 20);
+        $where = 't.id > :since_id AND t.is_deleted = 0 AND u.is_suspended = 0 AND ' . self::publishedWhere()
+            . ' AND (t.user_id = :user_id OR t.user_id IN (SELECT following_id FROM follows WHERE follower_id = :user_id)'
+            . ' OR t.id IN (SELECT rt.tweet_id FROM retweets rt WHERE rt.user_id = :user_id OR rt.user_id IN (SELECT following_id FROM follows WHERE follower_id = :user_id)))';
+        $rows = self::feed($where, ['since_id' => $sinceId, 'user_id' => $userId], 1, null, 20);
+        self::hydrateTimelineReposts($rows, $userId);
+        return $rows;
     }
 
     /**
@@ -89,7 +97,11 @@ final class Tweet
         if (!$includeSuspended) {
             $where .= ' AND u.is_suspended = 0';
         }
-        return self::feed($where, $params, $page, null);
+        $rows = self::feed($where, $params, $page, null);
+        if ($tab === 'tweets') {
+            self::hydrateProfileReposts($rows, $userId);
+        }
+        return $rows;
     }
 
     /**
@@ -105,7 +117,11 @@ final class Tweet
         if (!$includeSuspended) {
             $where .= ' AND u.is_suspended = 0';
         }
-        return self::feed($where, $params, 1, null, 20);
+        $rows = self::feed($where, $params, 1, null, 20);
+        if ($tab === 'tweets') {
+            self::hydrateProfileReposts($rows, $userId);
+        }
+        return $rows;
     }
 
     /**
@@ -258,9 +274,9 @@ final class Tweet
     }
 
     /**
-     * Create a classic RT tweet and return the new tweet.
+     * Repost a tweet once for a user and return the new count/state.
      *
-     * @return array<string, mixed>
+     * @return array{retweeted:bool,count:int}
      */
     public static function retweet(int $userId, int $tweetId): array
     {
@@ -274,17 +290,18 @@ final class Tweet
             if (!self::canBeViewedBy($original, $viewer)) {
                 throw new \RuntimeException('Forbidden.');
             }
+            if ((int)$original['user_id'] === $userId) {
+                throw new \InvalidArgumentException('You cannot repost your own post.');
+            }
             $existing = $db->one('SELECT id FROM retweets WHERE user_id = :user_id AND tweet_id = :tweet_id', ['user_id' => $userId, 'tweet_id' => $tweetId]);
             if ($existing) {
                 throw new \InvalidArgumentException('You already retweeted this.');
             }
-            $body = 'RT @' . $original['username'] . ': ' . $original['body'];
-            $body = Helpers::mbEllipsis($body, 140);
-            $newTweetId = self::insertTweet($db, $userId, $body, null, $tweetId);
             $db->execute('INSERT INTO retweets (user_id, tweet_id) VALUES (:user_id, :tweet_id)', ['user_id' => $userId, 'tweet_id' => $tweetId]);
             $db->execute('UPDATE tweets SET retweet_count = retweet_count + 1 WHERE id = :id', ['id' => $tweetId]);
             Notification::create((int)$original['user_id'], $userId, 'retweet', $tweetId);
-            return self::findWithUser($newTweetId, true) ?? [];
+            $row = $db->one('SELECT retweet_count FROM tweets WHERE id = :id', ['id' => $tweetId]);
+            return ['retweeted' => true, 'count' => (int)($row['retweet_count'] ?? 0)];
         });
     }
 
@@ -319,6 +336,20 @@ final class Tweet
         }
         return Database::instance()->one(
             'SELECT id FROM favorites WHERE user_id = :user_id AND tweet_id = :tweet_id',
+            ['user_id' => $userId, 'tweet_id' => $tweetId]
+        ) !== null;
+    }
+
+    /**
+     * True when a user has reposted a tweet.
+     */
+    public static function isRetweeted(?int $userId, int $tweetId): bool
+    {
+        if ($userId === null) {
+            return false;
+        }
+        return Database::instance()->one(
+            'SELECT id FROM retweets WHERE user_id = :user_id AND tweet_id = :tweet_id',
             ['user_id' => $userId, 'tweet_id' => $tweetId]
         ) !== null;
     }
@@ -384,6 +415,102 @@ final class Tweet
     }
 
     /**
+     * Return profile interaction analytics for posts owned by a user.
+     *
+     * @return array{summary:array<string, int>,recent:array<int, array<string, mixed>>}
+     */
+    public static function analyticsForUser(int $userId): array
+    {
+        $db = Database::instance();
+        $summary = $db->one(
+            'SELECT COUNT(*) AS posts,
+                    COALESCE(SUM(favorite_count), 0) AS favorites,
+                    COALESCE(SUM(retweet_count), 0) AS reposts,
+                    COALESCE(SUM(reply_count), 0) AS replies
+             FROM tweets
+             WHERE user_id = :user_id
+               AND is_deleted = 0
+               AND retweet_of_id IS NULL',
+            ['user_id' => $userId]
+        ) ?? [];
+        $pollVotes = $db->one(
+            'SELECT COUNT(*) AS count
+             FROM poll_votes pv
+             JOIN polls p ON p.id = pv.poll_id
+             JOIN tweets t ON t.id = p.tweet_id
+             WHERE t.user_id = :user_id
+               AND t.is_deleted = 0',
+            ['user_id' => $userId]
+        );
+
+        $recent = [];
+        foreach ($db->all(
+            'SELECT f.created_at, :type AS type, t.id AS tweet_id, t.body AS tweet_body,
+                    u.id AS actor_id, u.username, u.display_name, u.avatar, u.is_admin, u.is_system, u.is_verified, u.is_private, u.verified_type
+             FROM favorites f
+             JOIN tweets t ON t.id = f.tweet_id
+             JOIN users u ON u.id = f.user_id
+             WHERE t.user_id = :user_id AND t.is_deleted = 0
+             ORDER BY f.created_at DESC LIMIT 20',
+            ['type' => 'favorite', 'user_id' => $userId]
+        ) as $row) {
+            $recent[] = $row;
+        }
+        foreach ($db->all(
+            'SELECT rt.created_at, :type AS type, t.id AS tweet_id, t.body AS tweet_body,
+                    u.id AS actor_id, u.username, u.display_name, u.avatar, u.is_admin, u.is_system, u.is_verified, u.is_private, u.verified_type
+             FROM retweets rt
+             JOIN tweets t ON t.id = rt.tweet_id
+             JOIN users u ON u.id = rt.user_id
+             WHERE t.user_id = :user_id AND t.is_deleted = 0
+             ORDER BY rt.created_at DESC LIMIT 20',
+            ['type' => 'repost', 'user_id' => $userId]
+        ) as $row) {
+            $recent[] = $row;
+        }
+        foreach ($db->all(
+            'SELECT r.created_at, :type AS type, p.id AS tweet_id, r.body AS tweet_body,
+                    u.id AS actor_id, u.username, u.display_name, u.avatar, u.is_admin, u.is_system, u.is_verified, u.is_private, u.verified_type
+             FROM tweets r
+             JOIN tweets p ON p.id = r.reply_to_id
+             JOIN users u ON u.id = r.user_id
+             WHERE p.user_id = :user_id AND r.is_deleted = 0 AND p.is_deleted = 0
+             ORDER BY r.created_at DESC LIMIT 20',
+            ['type' => 'reply', 'user_id' => $userId]
+        ) as $row) {
+            $recent[] = $row;
+        }
+        foreach ($db->all(
+            'SELECT pv.created_at, :type AS type, t.id AS tweet_id, po.body AS tweet_body,
+                    u.id AS actor_id, u.username, u.display_name, u.avatar, u.is_admin, u.is_system, u.is_verified, u.is_private, u.verified_type
+             FROM poll_votes pv
+             JOIN polls p ON p.id = pv.poll_id
+             JOIN poll_options po ON po.id = pv.option_id
+             JOIN tweets t ON t.id = p.tweet_id
+             JOIN users u ON u.id = pv.user_id
+             WHERE t.user_id = :user_id AND t.is_deleted = 0
+             ORDER BY pv.created_at DESC LIMIT 20',
+            ['type' => 'poll_vote', 'user_id' => $userId]
+        ) as $row) {
+            $recent[] = $row;
+        }
+
+        usort($recent, static fn(array $a, array $b): int => strcmp((string)$b['created_at'], (string)$a['created_at']));
+        $recent = array_slice($recent, 0, 30);
+
+        return [
+            'summary' => [
+                'posts' => (int)($summary['posts'] ?? 0),
+                'favorites' => (int)($summary['favorites'] ?? 0),
+                'reposts' => (int)($summary['reposts'] ?? 0),
+                'replies' => (int)($summary['replies'] ?? 0),
+                'poll_votes' => (int)($pollVotes['count'] ?? 0),
+            ],
+            'recent' => $recent,
+        ];
+    }
+
+    /**
      * Fetch tweet rows with eager-loaded users and approved note preview.
      *
      * @param array<string, mixed> $params
@@ -401,6 +528,9 @@ final class Tweet
         }
         if (!$includeSuspended && !str_contains($where, 'u.is_deleted')) {
             $where .= ' AND u.is_deleted = 0';
+        }
+        if (!str_contains($where, 't.retweet_of_id')) {
+            $where .= ' AND t.retweet_of_id IS NULL';
         }
 
         $stmt = Database::instance()->pdo()->prepare(
@@ -541,6 +671,91 @@ final class Tweet
     }
 
     /**
+     * Annotate profile rows that are present because the profile owner reposted them.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     */
+    private static function hydrateProfileReposts(array &$rows, int $profileUserId): void
+    {
+        if ($rows === []) {
+            return;
+        }
+        $profile = User::find($profileUserId);
+        if (!$profile) {
+            return;
+        }
+        $ids = array_map(static fn(array $row): int => (int)$row['id'], $rows);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $params = array_merge([$profileUserId], $ids);
+        $retweets = Database::instance()->all(
+            "SELECT tweet_id, created_at FROM retweets WHERE user_id = ? AND tweet_id IN ({$placeholders})",
+            $params
+        );
+        $repostedAt = [];
+        foreach ($retweets as $retweet) {
+            $repostedAt[(int)$retweet['tweet_id']] = (string)$retweet['created_at'];
+        }
+        foreach ($rows as &$row) {
+            $id = (int)$row['id'];
+            if (isset($repostedAt[$id]) && (int)$row['user_id'] !== $profileUserId) {
+                $row['reposted_by_id'] = $profileUserId;
+                $row['reposted_by_username'] = $profile['username'];
+                $row['reposted_by_display_name'] = $profile['display_name'];
+                $row['reposted_at'] = $repostedAt[$id];
+            }
+            $row['_profile_activity_at'] = $repostedAt[$id] ?? (string)$row['created_at'];
+        }
+        usort($rows, static function (array $a, array $b): int {
+            return strcmp((string)($b['_profile_activity_at'] ?? $b['created_at']), (string)($a['_profile_activity_at'] ?? $a['created_at']));
+        });
+    }
+
+    /**
+     * Annotate timeline rows that are present because a followed/current account reposted them.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     */
+    private static function hydrateTimelineReposts(array &$rows, int $viewerId): void
+    {
+        if ($rows === []) {
+            return;
+        }
+        $ids = array_map(static fn(array $row): int => (int)$row['id'], $rows);
+        $placeholders = [];
+        $params = ['viewer_id' => $viewerId];
+        foreach ($ids as $index => $id) {
+            $key = 'tweet_id_' . $index;
+            $placeholders[] = ':' . $key;
+            $params[$key] = $id;
+        }
+        $retweets = Database::instance()->all(
+            "SELECT rt.tweet_id, rt.user_id, rt.created_at, u.username, u.display_name
+             FROM retweets rt
+             JOIN users u ON u.id = rt.user_id
+             WHERE rt.tweet_id IN (" . implode(',', $placeholders) . ")
+               AND (rt.user_id = :viewer_id OR rt.user_id IN (SELECT following_id FROM follows WHERE follower_id = :viewer_id))
+             ORDER BY rt.created_at DESC",
+            $params
+        );
+        $byTweet = [];
+        foreach ($retweets as $retweet) {
+            $tweetId = (int)$retweet['tweet_id'];
+            if (!isset($byTweet[$tweetId]) || (int)$retweet['user_id'] === $viewerId) {
+                $byTweet[$tweetId] = $retweet;
+            }
+        }
+        foreach ($rows as &$row) {
+            $id = (int)$row['id'];
+            if (isset($byTweet[$id]) && (int)$row['user_id'] !== (int)$byTweet[$id]['user_id']) {
+                $row['reposted_by_id'] = (int)$byTweet[$id]['user_id'];
+                $row['reposted_by_username'] = (string)$byTweet[$id]['username'];
+                $row['reposted_by_display_name'] = (string)$byTweet[$id]['display_name'];
+                $row['reposted_at'] = (string)$byTweet[$id]['created_at'];
+            }
+        }
+    }
+
+    /**
      * SQL condition for scheduled tweets that should be visible now.
      */
     private static function publishedWhere(): string
@@ -575,7 +790,7 @@ final class Tweet
         if ($tab === 'replies') {
             return ['t.user_id = :user_id AND t.reply_to_id IS NOT NULL AND t.is_deleted = 0 AND ' . self::publishedWhere(), $params];
         }
-        return ['t.user_id = :user_id AND t.is_deleted = 0 AND ' . self::publishedWhere(), $params];
+        return ['(t.user_id = :user_id OR t.id IN (SELECT tweet_id FROM retweets WHERE user_id = :user_id)) AND t.is_deleted = 0 AND ' . self::publishedWhere(), $params];
     }
 
     /**

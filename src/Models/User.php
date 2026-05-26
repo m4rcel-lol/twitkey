@@ -123,7 +123,8 @@ final class User
         Database::instance()->execute(
             'UPDATE users
              SET display_name = :display_name, email = COALESCE(:email, email), bio = :bio, location = :location, website = :website,
-                 avatar = COALESCE(:avatar, avatar), background = COALESCE(:background, background),
+                 avatar = CASE WHEN :avatar IS NOT NULL THEN :avatar WHEN :remove_avatar = 1 THEN NULL ELSE avatar END,
+                 background = CASE WHEN :background IS NOT NULL THEN :background WHEN :remove_background = 1 THEN NULL ELSE background END,
                  is_private = :is_private, follow_privacy = :follow_privacy, post_visibility = :post_visibility,
                  dm_privacy = :dm_privacy, theme_choice = :theme_choice, custom_theme_css = :custom_theme_css, updated_at = :updated_at
              WHERE id = :id',
@@ -135,6 +136,8 @@ final class User
                 'website' => $fields['website'] ?? '',
                 'avatar' => $fields['avatar'] ?? null,
                 'background' => $fields['background'] ?? null,
+                'remove_avatar' => (int)($fields['remove_avatar'] ?? 0),
+                'remove_background' => (int)($fields['remove_background'] ?? 0),
                 'is_private' => (int)($fields['is_private'] ?? 0),
                 'follow_privacy' => $fields['follow_privacy'] ?? 'everyone',
                 'post_visibility' => $fields['post_visibility'] ?? 'public',

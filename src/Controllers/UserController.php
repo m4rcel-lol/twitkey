@@ -27,19 +27,22 @@ final class UserController
             return;
         }
         $tab = (string)($_GET['tab'] ?? 'tweets');
-        if (!in_array($tab, ['tweets', 'replies', 'favorites'], true)) {
-            $tab = 'tweets';
-        }
         $current = Auth::user();
         $isOwn = $current && (int)$current['id'] === (int)$profile['id'];
+        $canViewAnalytics = $isOwn || Auth::isAdmin();
+        if (!in_array($tab, ['tweets', 'replies', 'favorites', 'analytics'], true) || ($tab === 'analytics' && !$canViewAnalytics)) {
+            $tab = 'tweets';
+        }
         $canSeeTweets = User::canViewPosts($profile, $current);
-        $tweets = $canSeeTweets ? Tweet::forProfile((int)$profile['id'], $tab, Helpers::page(), Auth::isAdmin()) : [];
+        $tweets = $canSeeTweets && $tab !== 'analytics' ? Tweet::forProfile((int)$profile['id'], $tab, Helpers::page(), Auth::isAdmin()) : [];
         Helpers::render('profile/show', [
             'title' => '@' . $profile['username'],
             'profile' => $profile,
             'tweets' => $tweets,
+            'analytics' => $tab === 'analytics' ? Tweet::analyticsForUser((int)$profile['id']) : null,
             'tab' => $tab,
             'isOwn' => $isOwn,
+            'canViewAnalytics' => $canViewAnalytics,
             'isFollowing' => Follow::isFollowing(Auth::id(), (int)$profile['id']),
             'followPending' => Follow::isPending(Auth::id(), (int)$profile['id']),
             'canSeeTweets' => $canSeeTweets,
@@ -59,7 +62,6 @@ final class UserController
             'user' => $user,
             'pendingAffiliations' => Affiliation::pendingForUser((int)$user['id']),
             'sentAffiliations' => ($user['verified_type'] ?? null) === 'business' ? Affiliation::sentByBusiness((int)$user['id']) : [],
-            'linkedAccounts' => Auth::linkedAccounts(),
             'passkeys' => TwoFactor::passkeys((int)$user['id']),
             'totpSecret' => (string)($user['totp_secret'] ?? ''),
             'totpUrl' => !empty($user['totp_secret']) ? TwoFactor::otpauthUrl($user, (string)$user['totp_secret']) : '',
@@ -76,6 +78,8 @@ final class UserController
         try {
             $avatar = $this->handleImageUpload('avatar', (int)$user['id'], 400, 400);
             $banner = $this->handleImageUpload('banner', (int)$user['id'], 1500, 500);
+            $removeAvatar = $avatar === null && isset($_POST['remove_avatar']);
+            $removeBanner = $banner === null && isset($_POST['remove_banner']);
             $website = trim((string)($_POST['website'] ?? ''));
             if ($website !== '' && !preg_match('~^https?://~i', $website)) {
                 $website = 'http://' . $website;
@@ -117,6 +121,8 @@ final class UserController
                 'website' => Helpers::mbLimit($website, 120),
                 'avatar' => $avatar,
                 'background' => $banner,
+                'remove_avatar' => $removeAvatar ? '1' : '0',
+                'remove_background' => $removeBanner ? '1' : '0',
                 'is_private' => (string)$isPrivate,
                 'follow_privacy' => $followPrivacy,
                 'post_visibility' => $postVisibility,
@@ -124,6 +130,8 @@ final class UserController
                 'theme_choice' => $theme,
                 'custom_theme_css' => $customThemeCss,
             ]);
+            $this->deleteReplacedProfileUpload((string)($user['avatar'] ?? ''), $avatar, $removeAvatar);
+            $this->deleteReplacedProfileUpload((string)($user['background'] ?? ''), $banner, $removeBanner);
             Auth::clearCache();
             Session::flash('success', 'Settings updated.');
         } catch (\Throwable $e) {
@@ -378,6 +386,15 @@ final class UserController
 
         $width = imagesx($source);
         $height = imagesy($source);
+        if ($field === 'avatar' && $info['mime'] === 'image/gif') {
+            imagedestroy($source);
+            $filename = 'avatar_' . hash('sha256', $userId . ':avatar-gif:' . microtime(true) . ':' . bin2hex(random_bytes(16))) . '.gif';
+            $path = Database::instance()->dataDir() . '/uploads/' . $filename;
+            if (!move_uploaded_file($tmp, $path)) {
+                throw new \RuntimeException('Avatar GIF could not be saved.');
+            }
+            return $filename;
+        }
         [$srcX, $srcY, $srcWidth, $srcHeight] = $this->resolveUploadCrop($field, $width, $height, $maxWidth / $maxHeight);
         $image = imagecreatetruecolor($maxWidth, $maxHeight);
         imagefill($image, 0, 0, imagecolorallocate($image, 255, 255, 255));
@@ -393,6 +410,23 @@ final class UserController
         imagedestroy($source);
         imagedestroy($image);
         return $filename;
+    }
+
+    /**
+     * Remove an old profile upload when a user replaces or clears it.
+     */
+    private function deleteReplacedProfileUpload(string $oldFile, ?string $newFile, bool $removed): void
+    {
+        if ($oldFile === '' || (!$removed && $newFile === null) || $oldFile === $newFile) {
+            return;
+        }
+        if (preg_match('/^(avatar|banner)_[a-f0-9]{64}\.(jpg|gif)$/', $oldFile) !== 1) {
+            return;
+        }
+        $path = Database::instance()->dataDir() . '/uploads/' . $oldFile;
+        if (is_file($path)) {
+            @unlink($path);
+        }
     }
 
     /**
