@@ -615,13 +615,41 @@ final class TwoFactor
 
     private static function rpId(): string
     {
-        return self::currentRequestParts()['host'];
+        return self::publicOriginParts()['host'];
     }
 
     private static function origin(): string
     {
-        $parts = self::currentRequestParts();
+        $parts = self::publicOriginParts();
         return self::buildOrigin($parts['scheme'], $parts['host'], $parts['port']);
+    }
+
+    /**
+     * Return canonical public scheme/host/port, preferring APP_URL (the public site URL)
+     * so that passkey/WebAuthn origins and RP IDs are stable even behind proxies,
+     * docker port mappings, or when HTTP_HOST differs from the public hostname.
+     * This fixes "Passkey origin is invalid" errors when the request headers don't
+     * match the URL users actually visit in the browser.
+     *
+     * @return array{scheme:string,host:string,port:int|null}
+     */
+    private static function publicOriginParts(): array
+    {
+        $appUrl = Helpers::env('APP_URL', '');
+        if ($appUrl !== '') {
+            $p = parse_url($appUrl);
+            if (is_array($p) && !empty($p['host'])) {
+                $scheme = strtolower((string)($p['scheme'] ?? 'http'));
+                if (!in_array($scheme, ['http', 'https'], true)) {
+                    $scheme = 'http';
+                }
+                $host = strtolower((string)$p['host']);
+                $port = isset($p['port']) ? (int)$p['port'] : null;
+                return ['scheme' => $scheme, 'host' => $host, 'port' => $port];
+            }
+        }
+        // Fallback to best-effort from request headers (legacy behavior)
+        return self::currentRequestParts();
     }
 
     /**
@@ -647,7 +675,7 @@ final class TwoFactor
     }
 
     /**
-     * Return canonical scheme/host/port for the current HTTP request.
+     * Return canonical scheme/host/port for the current HTTP request (fallback only).
      *
      * @return array{scheme:string,host:string,port:int|null}
      */

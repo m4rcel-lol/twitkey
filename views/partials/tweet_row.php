@@ -31,8 +31,8 @@ $isOwnTweet = $currentUser && (int)$currentUser['id'] === (int)$tweet['user_id']
             <span class="tweet-body deleted-text">[Tweet deleted]</span>
         <?php else: ?>
             <?php if (!empty($tweet['reposted_by_username'])): ?>
-                <div class="repost-context">
-                    <?= $currentUser && (int)($tweet['reposted_by_id'] ?? 0) === (int)$currentUser['id'] ? 'You' : Helpers::h($tweet['reposted_by_display_name'] ?: $tweet['reposted_by_username']) ?> reposted
+                <div class="retweet-context">
+                    <?= $currentUser && (int)($tweet['reposted_by_id'] ?? 0) === (int)$currentUser['id'] ? 'You' : Helpers::h($tweet['reposted_by_display_name'] ?: $tweet['reposted_by_username']) ?> retweeted
                 </div>
             <?php endif; ?>
             <strong><?= Helpers::renderUserName($author) ?></strong>
@@ -117,7 +117,7 @@ $isOwnTweet = $currentUser && (int)$currentUser['id'] === (int)$tweet['user_id']
                 · <a href="/tweet/<?= $tweetId ?>" class="tweet-action" data-reply-toggle>reply</a>
                 <?php if ($currentUser): ?>
                     · <form action="/tweet/<?= $tweetId ?>/retweet" method="post" class="inline-form" data-retweet-form>
-                        <?= Helpers::csrfField() ?><button type="submit" class="tweet-action<?= $retweeted ? ' is-retweeted' : '' ?>"<?= $retweeted || $isOwnTweet ? ' disabled' : '' ?>><?= $retweeted ? 'reposted' : 'repost' ?></button>
+                        <?= Helpers::csrfField() ?><button type="submit" class="tweet-action<?= $retweeted ? ' is-retweeted' : '' ?>"<?= $retweeted || $isOwnTweet ? ' disabled' : '' ?>><?= $retweeted ? 'retweeted' : 'retweet' ?></button>
                     </form>
                     · <form action="/tweet/<?= $tweetId ?>/favorite" method="post" class="inline-form" data-favorite-form>
                         <?= Helpers::csrfField() ?><button type="submit" class="tweet-action<?= $favorited ? ' is-favorited' : '' ?>"><?= $favorited ? 'favorited' : 'favorite' ?></button>

@@ -41,7 +41,7 @@
         <label class="crop-zoom-label">Crop size
             <input type="range" min="40" max="100" value="100" data-crop-zoom>
         </label>
-        <div class="crop-hint">Drag the box to choose how your profile picture should be framed.</div>
+        <div class="crop-hint">Drag the box to move the crop area. Drag the corner handles to resize (keeps aspect). Use the slider for quick size.</div>
     </div>
     <label>Profile banner
         <input type="file" name="banner" accept="image/jpeg,image/png,image/gif,image/webp" data-crop-input="banner">
@@ -65,7 +65,7 @@
         <label class="crop-zoom-label">Crop size
             <input type="range" min="40" max="100" value="100" data-crop-zoom>
         </label>
-        <div class="crop-hint">Drag the wide box to position the banner exactly how it should appear.</div>
+        <div class="crop-hint">Drag the box to move the crop area. Drag corner handles to resize (keeps 3:1 aspect). Slider for quick size.</div>
     </div>
     <div class="settings-section">
         <h2>Privacy</h2>

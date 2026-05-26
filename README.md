@@ -29,7 +29,7 @@ Docker Compose reads `.env` in two ways here: it uses `HTTP_PORT` and `HTTPS_POR
 | Variable | Default | Description |
 | --- | --- | --- |
 | `APP_NAME` | `Twitkey` | Application name in the UI. |
-| `APP_URL` | `http://localhost` | Public site URL. |
+| `APP_URL` | `http://localhost` | Public site URL (scheme + host + port if non-default). **Required for passkeys/WebAuthn to work reliably**; set to the exact URL users visit (e.g. `https://twitkey.example.com` or `http://localhost:8080`). Used as canonical origin for security checks. |
 | `APP_DEBUG` | `false` | Enables PHP error display when `true`. |
 | `HTTP_PORT` | `80` | Host port mapped to container port 80. |
 | `HTTPS_PORT` | `443` | Host port mapped to container port 443. |

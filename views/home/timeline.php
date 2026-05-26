@@ -5,8 +5,8 @@
 <?php
 $basePath = $basePath ?? '/';
 $feedUrl = $basePath === '/'
-    ? '/api/timeline?scope=home'
-    : ($basePath === '/public' ? '/api/timeline?scope=public' : ($basePath === '/replies' ? '/api/timeline?scope=mentions' : ''));
+    ? '/api/timeline?scope=public'
+    : ($basePath === '/public' ? '/api/timeline?scope=public' : ($basePath === '/mutuals' ? '/api/timeline?scope=mutuals' : ($basePath === '/replies' ? '/api/timeline?scope=mentions' : '')));
 ?>
 <div class="timeline" id="timeline"<?= $feedUrl !== '' ? ' data-realtime-feed="' . Helpers::h($feedUrl) . '" data-realtime-insert="prepend"' : '' ?>>
     <?php if ($tweets === []): ?>

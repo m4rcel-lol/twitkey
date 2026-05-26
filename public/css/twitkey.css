@@ -1296,7 +1296,7 @@ button,
     margin: 0 0 2px;
 }
 
-.repost-context {
+.retweet-context {
     color: #777;
     font-size: 11px;
     font-weight: bold;
@@ -1943,6 +1943,23 @@ button,
         linear-gradient(to right, transparent 33%, rgba(255, 255, 255, .72) 33%, rgba(255, 255, 255, .72) calc(33% + 1px), transparent calc(33% + 1px), transparent 66%, rgba(255, 255, 255, .72) 66%, rgba(255, 255, 255, .72) calc(66% + 1px), transparent calc(66% + 1px)),
         linear-gradient(to bottom, transparent 33%, rgba(255, 255, 255, .72) 33%, rgba(255, 255, 255, .72) calc(33% + 1px), transparent calc(33% + 1px), transparent 66%, rgba(255, 255, 255, .72) 66%, rgba(255, 255, 255, .72) calc(66% + 1px), transparent calc(66% + 1px));
 }
+
+.crop-handle {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border: 1px solid #04538a;
+    border-radius: 2px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+    z-index: 3;
+    touch-action: none;
+    box-sizing: border-box;
+}
+.crop-handle-nw { cursor: nwse-resize; }
+.crop-handle-ne { cursor: nesw-resize; }
+.crop-handle-sw { cursor: nesw-resize; }
+.crop-handle-se { cursor: nwse-resize; }
 
 .crop-hint {
     color: #777;
@@ -2627,12 +2644,12 @@ button,
 }
 
 .admin-mode {
-    background: #0b1420;
+    background: var(--bg-body);
 }
 
 .admin-mode .topbar {
-    background: #06101a;
-    border-bottom: 1px solid #1d3d55;
+    background: var(--bg-header-top, var(--bg-header));
+    border-bottom: 1px solid var(--border-dark);
 }
 
 .admin-mode .topbar-inner {
@@ -2649,7 +2666,7 @@ button,
     border: 0;
     border-radius: 0;
     box-shadow: none;
-    background: #edf4f8;
+    background: var(--bg-body);
     overflow: visible;
 }
 
@@ -2658,7 +2675,7 @@ button,
     grid-template-columns: 248px minmax(0, 1fr);
     align-content: start;
     min-height: calc(100vh - 30px);
-    background: #edf4f8;
+    background: var(--bg-body);
     min-width: 0;
 }
 
@@ -2673,9 +2690,9 @@ button,
     z-index: 20;
     min-height: calc(100vh - 30px);
     padding: 20px 14px;
-    background: linear-gradient(180deg, #0c2233 0%, #08141f 100%);
+    background: var(--bg-tweet-box);
     border: 0;
-    box-shadow: inset -1px 0 0 #1b3f58;
+    box-shadow: inset -1px 0 0 var(--border-dark);
 }
 
 .admin-nav a {
@@ -2685,7 +2702,7 @@ button,
 
 .admin-mode .admin-nav a {
     display: block;
-    color: #c7dfec;
+    color: var(--text-primary);
     margin: 0;
     padding: 10px 12px;
     border: 1px solid transparent;
@@ -2693,21 +2710,21 @@ button,
 }
 
 .admin-nav a.active {
-    color: #333;
+    color: var(--text-primary);
 }
 
 .admin-mode .admin-nav a:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, .07);
+    color: var(--text-primary);
+    background: rgba(0, 0, 0, .06);
     text-decoration: none;
 }
 
 .admin-mode .admin-nav a.active {
-    color: #fff;
-    background: #1b7dba;
-    border-color: #4aa3d3;
+    color: var(--text-white);
+    background: var(--bg-header);
+    border-color: var(--border-dark);
     text-decoration: none;
-    box-shadow: 0 1px 0 rgba(255, 255, 255, .16) inset;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .12) inset;
 }
 
 .admin-mode .flash,
@@ -2725,14 +2742,16 @@ button,
 
 .admin-mode .flash {
     margin: 14px 18px 0;
+    background: var(--bg-tweet-box);
+    border-color: var(--border-main);
 }
 
 .admin-security-banner {
     margin: 16px 18px 0;
     padding: 10px 12px;
-    background: #fff8d8;
-    border: 1px solid #e7c45f;
-    color: #684c00;
+    background: var(--bg-tweet-box);
+    border: 1px solid var(--border-main);
+    color: var(--text-primary);
     font-size: 12px;
     font-weight: bold;
 }
@@ -2740,14 +2759,14 @@ button,
 .admin-mode .content-header {
     margin: 18px 18px 0;
     padding: 18px 20px;
-    color: #fff;
-    background: linear-gradient(180deg, #14364d 0%, #0d2638 100%);
-    border: 1px solid #22465d;
+    color: var(--text-primary);
+    background: var(--bg-tweet-box);
+    border: 1px solid var(--border-main);
     border-radius: 5px 5px 0 0;
 }
 
 .admin-mode .content-header h1 {
-    color: #fff;
+    color: var(--text-primary);
     font-size: 22px;
     letter-spacing: 0;
 }
@@ -2758,30 +2777,30 @@ button,
     gap: 10px;
     margin: 0 18px 18px;
     padding: 14px;
-    background: #fff;
-    border: 1px solid #c6d7e1;
+    background: var(--bg-white);
+    border: 1px solid var(--border-main);
     border-top: 0;
-    box-shadow: 0 1px 2px rgba(15, 34, 48, .08);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
 }
 
 .admin-stats div {
-    background: #f2f8fb;
-    border: 1px solid #c9dce7;
+    background: var(--bg-tweet-box);
+    border: 1px solid var(--border-main);
     border-radius: 4px;
     padding: 10px;
-    color: #344b5a;
+    color: var(--text-primary);
 }
 
 .admin-stats strong {
     display: block;
     margin-top: 4px;
-    color: #0e3147;
+    color: var(--text-primary);
     font-size: 19px;
 }
 
 .admin-mode h2 {
     margin: 18px 18px 8px;
-    color: #122d40;
+    color: var(--text-primary);
     font-size: 16px;
 }
 
@@ -2789,9 +2808,9 @@ button,
 .admin-mode .maintenance-admin-panel,
 .admin-mode .empty-state {
     margin: 0 18px 18px;
-    background: #fff;
-    border: 1px solid #c6d7e1;
-    box-shadow: 0 1px 2px rgba(15, 34, 48, .06);
+    background: var(--bg-white);
+    border: 1px solid var(--border-main);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
 }
 
 .admin-table {
@@ -2801,9 +2820,9 @@ button,
     border-spacing: 0;
     font-size: 12px;
     table-layout: fixed;
-    background: #fff;
-    border: 1px solid #bfcfda;
-    box-shadow: 0 1px 2px rgba(15, 34, 48, .08);
+    background: var(--bg-white);
+    border: 1px solid var(--border-main);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
 }
 
 .admin-mode .admin-table {
@@ -2812,20 +2831,29 @@ button,
 
 .admin-table th,
 .admin-table td {
-    border-bottom: 1px solid #e1e9ee;
+    border-bottom: 1px solid var(--border-main);
     padding: 9px 8px;
     text-align: left;
     vertical-align: top;
 }
 
 .admin-table th {
-    background: #dbeaf3;
-    color: #263844;
-    border-bottom-color: #bfd2de;
+    background: var(--bg-tweet-box);
+    color: var(--text-primary);
+    border-bottom-color: var(--border-main);
+}
+
+.admin-mode .admin-table tbody tr:hover td {
+    background: var(--bg-tweet-box);
 }
 
 .admin-table tr:last-child td {
     border-bottom: 0;
+}
+
+.admin-mode .admin-table th,
+.admin-mode .admin-table td {
+    color: var(--text-primary);
 }
 
 .admin-users-table th:nth-child(1),
@@ -2875,9 +2903,9 @@ button,
 
 .admin-actions button,
 .admin-actions a {
-    background: #f7fafc;
-    border: 1px solid #b7c7d1;
-    color: #243744;
+    background: var(--bg-tweet-box);
+    border: 1px solid var(--border-input);
+    color: var(--text-primary);
     font-size: 11px;
     padding: 4px 6px;
     cursor: pointer;
@@ -2891,9 +2919,9 @@ button,
 
 .admin-actions button:hover,
 .admin-actions a:hover {
-    background: #e8f5fd;
-    border-color: #7db6d8;
-    color: #005f8f;
+    background: var(--bg-body);
+    border-color: var(--border-dark);
+    color: var(--text-link);
     text-decoration: none;
 }
 
@@ -2913,6 +2941,8 @@ button,
     grid-column: 1 / -1;
     width: 100%;
     border: 1px solid var(--border-input);
+    background: var(--bg-input);
+    color: var(--text-primary);
     font-size: 11px;
     padding: 5px 6px;
     border-radius: 3px;
@@ -2934,14 +2964,14 @@ button,
     width: 420px;
     max-width: 100%;
     padding: 22px;
-    background: #fff;
-    border: 1px solid #bfd1dd;
+    background: var(--bg-white);
+    border: 1px solid var(--border-main);
     border-radius: 5px;
-    box-shadow: 0 3px 14px rgba(7, 19, 29, .18);
+    box-shadow: 0 3px 14px rgba(0, 0, 0, .12);
 }
 
 .admin-auth-kicker {
-    color: #1b7dba;
+    color: var(--text-link);
     font-size: 11px;
     font-weight: bold;
     text-transform: uppercase;
@@ -2953,7 +2983,7 @@ button,
 }
 
 .admin-auth-card p {
-    color: #596d7b;
+    color: var(--text-secondary);
 }
 
 .admin-mode .admin-auth-form {
@@ -3384,6 +3414,12 @@ button,
         grid-template-columns: 1fr;
         max-width: 100%;
     }
+
+    /* Additional mobile polish for 720px and below */
+    .tweet-action {
+        padding: 2px 4px;
+        min-height: 28px;
+    }
 }
 
 @media (max-width: 420px) {
@@ -3409,5 +3445,26 @@ button,
 
     .tweet-content {
         min-width: 0;
+    }
+
+    /* Mobile touch & polish fixes (non-redesign) */
+    .topnav a,
+    .tweet-action,
+    .mini-button,
+    .header-account-button {
+        min-height: 36px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+    }
+    .compose-tools button {
+        min-height: 38px;
+        font-size: 12px;
+    }
+    .crop-handle {
+        width: 18px;
+        height: 18px;
+    }
+    .crop-stage {
+        min-height: 120px;
     }
 }

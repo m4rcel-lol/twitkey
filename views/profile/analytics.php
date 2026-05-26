@@ -4,7 +4,7 @@
     <div class="analytics-grid">
         <div><span>Posts</span><strong><?= number_format((int)($summary['posts'] ?? 0)) ?></strong></div>
         <div><span>Favorites</span><strong><?= number_format((int)($summary['favorites'] ?? 0)) ?></strong></div>
-        <div><span>Reposts</span><strong><?= number_format((int)($summary['reposts'] ?? 0)) ?></strong></div>
+        <div><span>Retweets</span><strong><?= number_format((int)($summary['reposts'] ?? 0)) ?></strong></div>
         <div><span>Replies</span><strong><?= number_format((int)($summary['replies'] ?? 0)) ?></strong></div>
         <div><span>Poll votes</span><strong><?= number_format((int)($summary['poll_votes'] ?? 0)) ?></strong></div>
     </div>
@@ -28,7 +28,7 @@
             ];
             $verb = match ((string)$interaction['type']) {
                 'favorite' => 'favorited',
-                'repost' => 'reposted',
+                'repost' => 'retweeted',
                 'reply' => 'replied to',
                 'poll_vote' => 'voted on',
                 default => 'interacted with',

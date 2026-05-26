@@ -407,7 +407,7 @@
                 try {
                     const data = await jsonFetch(form.action, { method: 'POST', body: new FormData(form) });
                     if (button) {
-                        button.textContent = 'reposted';
+                        button.textContent = 'retweeted';
                         button.classList.add('is-retweeted');
                     }
                     const count = row?.querySelector('.retweet-count');
@@ -648,11 +648,30 @@
         const aspect = Number(cropper?.dataset.cropAspect || '1') || 1;
         let crop = null;
         let drag = null;
+        let resize = null;
         let objectUrl = '';
+        const handles = {};
 
         if (!cropper || !stage || !image || !box) {
             return;
         }
+
+        // Create 4 corner resize handles (aspect-preserving resize of crop box)
+        const cornerDefs = [
+            { name: 'nw', cursor: 'nwse-resize' },
+            { name: 'ne', cursor: 'nesw-resize' },
+            { name: 'sw', cursor: 'nesw-resize' },
+            { name: 'se', cursor: 'nwse-resize' },
+        ];
+        cornerDefs.forEach((def) => {
+            const h = document.createElement('div');
+            h.className = `crop-handle crop-handle-${def.name}`;
+            h.dataset.corner = def.name;
+            h.style.display = 'none';
+            stage.appendChild(h);
+            handles[def.name] = h;
+            h.addEventListener('pointerdown', (event) => startResize(event, def.name));
+        });
 
         const setField = (key, value) => {
             const field = document.querySelector(`[data-crop-field="${name}:${key}"]`);
@@ -686,12 +705,37 @@
 
         const renderCrop = () => {
             if (!crop) {
+                box.style.display = 'none';
+                Object.values(handles).forEach((h) => { h.style.display = 'none'; });
                 return;
             }
+            box.style.display = '';
             box.style.left = `${crop.x}px`;
             box.style.top = `${crop.y}px`;
             box.style.width = `${crop.w}px`;
             box.style.height = `${crop.h}px`;
+            // position handles at corners (relative to stage)
+            const hs = 7; // half handle size
+            if (handles.nw) {
+                handles.nw.style.left = `${crop.x - hs}px`;
+                handles.nw.style.top = `${crop.y - hs}px`;
+                handles.nw.style.display = '';
+            }
+            if (handles.ne) {
+                handles.ne.style.left = `${crop.x + crop.w - hs}px`;
+                handles.ne.style.top = `${crop.y - hs}px`;
+                handles.ne.style.display = '';
+            }
+            if (handles.sw) {
+                handles.sw.style.left = `${crop.x - hs}px`;
+                handles.sw.style.top = `${crop.y + crop.h - hs}px`;
+                handles.sw.style.display = '';
+            }
+            if (handles.se) {
+                handles.se.style.left = `${crop.x + crop.w - hs}px`;
+                handles.se.style.top = `${crop.y + crop.h - hs}px`;
+                handles.se.style.display = '';
+            }
             writeCropFields();
         };
 
@@ -722,6 +766,125 @@
             renderCrop();
         };
 
+        const startResize = (event, corner) => {
+            if (!crop) return;
+            event.preventDefault();
+            if (event.target && event.target.setPointerCapture) {
+                event.target.setPointerCapture(event.pointerId);
+            }
+            const rect = imageRectInStage();
+            resize = {
+                id: event.pointerId,
+                corner,
+                startX: event.clientX,
+                startY: event.clientY,
+                cropX: crop.x,
+                cropY: crop.y,
+                cropW: crop.w,
+                cropH: crop.h,
+                rectLeft: rect.left,
+                rectTop: rect.top,
+                rectW: rect.width,
+                rectH: rect.height,
+                aspect,
+            };
+        };
+
+        // Shared pointer move handler on stage for drag + resize (handles are in stage)
+        stage.addEventListener('pointermove', (event) => {
+            if (drag && drag.id === event.pointerId) {
+                const rect = imageRectInStage();
+                crop.x = clamp(drag.cropX + event.clientX - drag.startX, rect.left, rect.left + rect.width - crop.w);
+                crop.y = clamp(drag.cropY + event.clientY - drag.startY, rect.top, rect.top + rect.height - crop.h);
+                renderCrop();
+                return;
+            }
+            if (resize && resize.id === event.pointerId) {
+                const mX = event.clientX - resize.rectLeft;
+                const mY = event.clientY - resize.rectTop;
+                const minSize = 28;
+                const maxW = resize.rectW;
+                const maxH = resize.rectH;
+                let newW = resize.cropW;
+                let newH = resize.cropH;
+                let newX = resize.cropX;
+                let newY = resize.cropY;
+                const c = resize.corner;
+                const a = resize.aspect || 1;
+
+                if (c === 'se' || c === 'ne') {
+                    // right side moves
+                    newW = clamp(mX - resize.cropX, minSize, maxW - resize.cropX);
+                } else if (c === 'sw' || c === 'nw') {
+                    // left side moves
+                    newW = clamp((resize.cropX + resize.cropW) - mX, minSize, resize.cropX + resize.cropW);
+                    newX = (resize.cropX + resize.cropW) - newW;
+                }
+                // derive H from W to keep aspect, adjust Y for north corners
+                newH = newW / a;
+                if (c === 'nw' || c === 'ne') {
+                    // top edge moves
+                    newY = (resize.cropY + resize.cropH) - newH;
+                    // also re-clamp if needed
+                    if (newY < resize.rectTop) {
+                        newH = resize.cropY + resize.cropH - resize.rectTop;
+                        newW = newH * a;
+                        newX = c === 'nw' ? (resize.cropX + resize.cropW) - newW : resize.cropX;
+                        newY = resize.rectTop;
+                    }
+                } else {
+                    // south, bottom fixed, newY = old
+                    if (newY + newH > resize.rectTop + resize.rectH) {
+                        newH = resize.rectTop + resize.rectH - newY;
+                        newW = newH * a;
+                        if (c === 'sw') newX = resize.cropX + resize.cropW - newW;
+                    }
+                }
+                // final clamp and aspect re-apply
+                newW = clamp(newW, minSize, maxW);
+                newH = newW / a;
+                if (newX < resize.rectLeft) { newX = resize.rectLeft; newW = clamp(resize.cropX + resize.cropW - newX, minSize, maxW); newH = newW / a; }
+                if (newY < resize.rectTop) { newY = resize.rectTop; }
+                if (newX + newW > resize.rectLeft + maxW) { newW = resize.rectLeft + maxW - newX; newH = newW / a; }
+                if (newY + newH > resize.rectTop + resize.rectH) { newH = resize.rectTop + resize.rectH - newY; newW = newH * a; }
+
+                crop.x = newX;
+                crop.y = newY;
+                crop.w = newW;
+                crop.h = newH;
+                renderCrop();
+            }
+        });
+
+        const stopInteraction = (event) => {
+            if (drag && drag.id === event.pointerId) {
+                drag = null;
+            }
+            if (resize && resize.id === event.pointerId) {
+                resize = null;
+            }
+        };
+        stage.addEventListener('pointerup', stopInteraction);
+        stage.addEventListener('pointercancel', stopInteraction);
+
+        // Also keep the original box move handlers for direct box drag (move)
+        // (the stage move above handles it too now via shared)
+        // but keep box listeners for compatibility / capture
+        box.addEventListener('pointerdown', (event) => {
+            if (!crop) return;
+            // if clicking near a handle, let handle handle it (handles are on top)
+            if (event.target && event.target.classList && event.target.classList.contains('crop-handle')) return;
+            event.preventDefault();
+            if (box.setPointerCapture) box.setPointerCapture(event.pointerId);
+            drag = {
+                id: event.pointerId,
+                startX: event.clientX,
+                startY: event.clientY,
+                cropX: crop.x,
+                cropY: crop.y,
+            };
+        });
+
         input.addEventListener('change', () => {
             const file = input.files?.[0] || null;
             if (objectUrl) {
@@ -729,6 +892,7 @@
                 objectUrl = '';
             }
             crop = null;
+            renderCrop();
             writeCropFields();
             if (!file || !file.type.startsWith('image/')) {
                 cropper.hidden = true;
@@ -752,40 +916,8 @@
             }
         });
 
-        box.addEventListener('pointerdown', (event) => {
-            if (!crop) {
-                return;
-            }
-            event.preventDefault();
-            if (box.setPointerCapture) {
-                box.setPointerCapture(event.pointerId);
-            }
-            drag = {
-                id: event.pointerId,
-                startX: event.clientX,
-                startY: event.clientY,
-                cropX: crop.x,
-                cropY: crop.y,
-            };
-        });
-
-        box.addEventListener('pointermove', (event) => {
-            if (!drag || !crop || drag.id !== event.pointerId) {
-                return;
-            }
-            const rect = imageRectInStage();
-            crop.x = clamp(drag.cropX + event.clientX - drag.startX, rect.left, rect.left + rect.width - crop.w);
-            crop.y = clamp(drag.cropY + event.clientY - drag.startY, rect.top, rect.top + rect.height - crop.h);
-            renderCrop();
-        });
-
-        const stopDrag = (event) => {
-            if (drag && drag.id === event.pointerId) {
-                drag = null;
-            }
-        };
-        box.addEventListener('pointerup', stopDrag);
-        box.addEventListener('pointercancel', stopDrag);
+        // Note: box drag/resize now primarily handled via stage pointermove (shared with handles)
+        // and our inserted box pointerdown (for direct box grabs). Old listeners removed to avoid double-handling.
         window.addEventListener('resize', () => {
             if (!cropper.hidden && image.getAttribute('src')) {
                 createInitialCrop(false);
