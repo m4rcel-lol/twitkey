@@ -71,6 +71,33 @@ final class CommunityNote
     }
 
     /**
+     * True if a majority of registered (non-system, non-suspended, non-deleted) users
+     * have voted 'helpful' on this note. Used for the green "Verified by The Community" state.
+     */
+    public static function isCommunityVerified(int $noteId): bool
+    {
+        $db = Database::instance();
+
+        $totalUsers = (int)($db->one(
+            "SELECT COUNT(*) AS c FROM users
+             WHERE is_system = 0 AND is_suspended = 0 AND is_deleted = 0"
+        )['c'] ?? 0);
+
+        if ($totalUsers <= 0) {
+            return false;
+        }
+
+        $helpful = (int)($db->one(
+            "SELECT COUNT(*) AS c FROM community_note_votes
+             WHERE note_id = :note_id AND vote = 'helpful'",
+            ['note_id' => $noteId]
+        )['c'] ?? 0);
+
+        // Strict majority of all registered users
+        return $helpful > ($totalUsers / 2);
+    }
+
+    /**
      * Return pending notes for eligible users to review.
      *
      * @return array<int, array<string, mixed>>
@@ -107,24 +134,22 @@ final class CommunityNote
             if (!$note) {
                 throw new \InvalidArgumentException('Community Note not found.');
             }
-            if ((string)$note['status'] !== 'pending') {
+            if (!in_array((string)$note['status'], ['pending', 'approved'], true)) {
                 throw new \RuntimeException('Voting is closed for this Community Note.');
             }
             if ((int)$note['author_id'] === $userId) {
                 throw new \RuntimeException('You cannot vote on your own Community Note.');
             }
             $existing = $db->one('SELECT vote FROM community_note_votes WHERE note_id = :note_id AND user_id = :user_id', ['note_id' => $noteId, 'user_id' => $userId]);
-            if ($existing && $existing['vote'] === $vote) {
-                return;
-            }
             if ($existing) {
-                $db->execute('UPDATE community_note_votes SET vote = :vote WHERE note_id = :note_id AND user_id = :user_id', ['vote' => $vote, 'note_id' => $noteId, 'user_id' => $userId]);
-            } else {
-                $db->execute('INSERT INTO community_note_votes (note_id, user_id, vote) VALUES (:note_id, :user_id, :vote)', ['note_id' => $noteId, 'user_id' => $userId, 'vote' => $vote]);
+                // Votes cannot be changed or cancelled once cast
+                throw new \RuntimeException('You have already voted on this Community Note.');
             }
+            $db->execute('INSERT INTO community_note_votes (note_id, user_id, vote) VALUES (:note_id, :user_id, :vote)', ['note_id' => $noteId, 'user_id' => $userId, 'vote' => $vote]);
         });
         self::recountVotes($noteId);
-        self::autoModerate($noteId);
+        // Auto-approval disabled per requirements. Notes must be manually approved by admins.
+        // self::autoModerate($noteId);
     }
 
     /**
