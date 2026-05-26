@@ -7,8 +7,14 @@
 </div>
 
 <?php if ($note): ?>
-    <section class="community-note" data-community-note>
-        <div class="note-header">📋 Community Note <button type="button" data-note-toggle>▼ hide</button></div>
+    <section class="community-note<?= !empty($note['is_community_verified']) ? ' is-verified' : '' ?>" data-community-note>
+        <div class="note-header">
+            📋 Community Note
+            <?php if (!empty($note['is_community_verified'])): ?>
+                <span class="verified-label">✓ Verified by The Community</span>
+            <?php endif; ?>
+            <button type="button" data-note-toggle>▼ hide</button>
+        </div>
         <div class="note-body">
             <p><?= Helpers::h($note['body']) ?></p>
             <div class="muted">written by @<?= Helpers::h($note['username']) ?></div>

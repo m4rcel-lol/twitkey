@@ -387,6 +387,7 @@ button,
     height: 30px;
     display: flex;
     align-items: center;
+    z-index: 10000; /* ensure badge tooltips and dropdown win over header */
 }
 
 .header-account-button {
@@ -436,7 +437,7 @@ button,
     position: absolute;
     right: 0;
     top: 30px;
-    z-index: 900;
+    z-index: 10001; /* always above header and other elements, including badge tooltips */
     width: 304px;
     background: #fff;
     border: 1px solid var(--border-dark);
@@ -2498,6 +2499,26 @@ button,
     display: none;
 }
 
+/* Verified by The Community (majority of registered users voted helpful) */
+.community-note.is-verified {
+    background: #e8f5e9;
+    border-color: #4caf50;
+    border-left-color: #2e7d32;
+}
+.community-note.is-verified .note-header {
+    color: #1b5e20;
+}
+.community-note.is-verified .verified-label {
+    background: #4caf50;
+    color: #fff;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 2px;
+    margin-left: 6px;
+    vertical-align: middle;
+    font-weight: normal;
+}
+
 .note-form-wrap {
     margin: 10px;
     font-size: 12px;
@@ -3146,11 +3167,13 @@ button,
         right: 8px;
         top: 2px;
         margin-left: 0;
+        z-index: 10000;
     }
 
     .header-account-dropdown {
         right: 0;
         top: 28px;
+        z-index: 10001;
     }
 
     .account-menu-row {

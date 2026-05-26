@@ -62,6 +62,9 @@ final class TweetController
             return;
         }
         $note = CommunityNote::approvedForTweet((int)$tweet['id']);
+        if ($note) {
+            $note['is_community_verified'] = CommunityNote::isCommunityVerified((int)$note['id']);
+        }
         $replies = array_values(array_filter(
             Tweet::repliesTo((int)$tweet['id'], true),
             static fn(array $reply): bool => Tweet::canBeViewedBy($reply, $currentUser)
